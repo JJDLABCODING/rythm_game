@@ -92,7 +92,7 @@ def main():
         # 1) 1인·하 키 입력 판정
         page.goto(URL)
         shot(page, '01-start')
-        page.click('text=1인 플레이')
+        page.click('label:has(input[name="players"][value="1"])')
         page.click('label:has(input[value="하"])')
         page.click('#start')
         page.wait_for_timeout(1200)
@@ -131,7 +131,7 @@ def main():
 
         # 3) 2인·상 자동 연주로 끝까지
         page.goto(URL + '?auto=1')
-        page.click('text=2인 플레이')
+        page.click('label:has(input[name="players"][value="2"])')
         page.click('label:has(input[value="상"])')
         page.click('#start')
         page.wait_for_timeout(40000)

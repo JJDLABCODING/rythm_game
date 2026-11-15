@@ -31,17 +31,18 @@
   RT.keyLabels = KEY_LABELS;
 
   // 오방색: 청·적·황·백
-  const LANE_COLORS = ['#3d7fe9', '#e5483f', '#f2b632', '#efeadc'];
+  const LANE_COLORS = ['#4d8bff', '#ff3b5c', '#ffc94a', '#fff1d6'];
   const LANE_NAMES = ['청', '적', '황', '백'];
-  const PLAYER_COLORS = ['#c3f36b', '#ff8a6b'];
+  const PLAYER_COLORS = ['#3ef0c1', '#ff4f9a'];
   const FONT = "'Noto Sans KR', system-ui, sans-serif";
+  const TITLE_FONT = "'Black Han Sans', 'Noto Sans KR', system-ui, sans-serif";
 
   // 판정 이름은 판소리 추임새에서 따왔다.
   const JUDGE = {
-    perfect: { text: '얼쑤!', color: '#c3f36b', weight: 1 },
-    great: { text: '좋다!', color: '#7fd3ff', weight: 0.7 },
-    good: { text: '잘한다', color: '#f2b632', weight: 0.4 },
-    miss: { text: '어이쿠', color: '#a3aaa2', weight: 0 },
+    perfect: { text: '얼쑤!', color: '#ffe066', weight: 1 },
+    great: { text: '좋다!', color: '#4dd8ff', weight: 0.7 },
+    good: { text: '잘한다', color: '#ff9f5a', weight: 0.4 },
+    miss: { text: '어이쿠', color: '#9a93c4', weight: 0 },
   };
   const MILESTONES = { 20: '얼씨구!', 50: '좋구나!', 100: '지화자!', 150: '명창이로다!', 200: '얼씨구 절씨구!' };
 
@@ -436,52 +437,113 @@
       this.bg = this.paintBackground(W, H, dpr);
     }
 
-    // 달과 산 능선이 있는 배경 (한 번만 그려 둔다)
+    // 밤하늘·달·한옥 지붕·홍등 배경 (창 크기가 바뀔 때만 다시 그린다)
     paintBackground(W, H, dpr) {
       const c = document.createElement('canvas');
       c.width = Math.round(W * dpr);
       c.height = Math.round(H * dpr);
       const g = c.getContext('2d');
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const sky = g.createLinearGradient(0, 0, 0, H);
-      sky.addColorStop(0, '#0b120e');
-      sky.addColorStop(0.6, '#142019');
-      sky.addColorStop(1, '#0d1410');
+      const sky = g.createRadialGradient(W * 0.7, -H * 0.1, 0, W * 0.7, -H * 0.1, Math.max(W, H) * 1.1);
+      sky.addColorStop(0, '#3a1f6e');
+      sky.addColorStop(0.4, '#170f3a');
+      sky.addColorStop(1, '#0a0820');
       g.fillStyle = sky;
       g.fillRect(0, 0, W, H);
+      // 별 (늘 같은 자리에 찍히도록 고정된 난수)
+      let seed = 7;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      for (let i = 0; i < 90; i++) {
+        g.globalAlpha = 0.25 + rnd() * 0.6;
+        g.fillStyle = '#fff6e0';
+        g.fillRect(rnd() * W, rnd() * H * 0.6, rnd() < 0.15 ? 2 : 1.2, rnd() < 0.15 ? 2 : 1.2);
+      }
+      g.globalAlpha = 1;
       // 달
-      const mx = W * 0.82;
-      const my = H * 0.22;
-      const mr = Math.min(W, H) * 0.09;
-      const glow = g.createRadialGradient(mx, my, mr * 0.6, mx, my, mr * 3.2);
-      glow.addColorStop(0, '#f3e9c733');
-      glow.addColorStop(1, '#f3e9c700');
+      const mx = W * 0.86;
+      const my = H * 0.2;
+      const mr = Math.min(W, H) * 0.08;
+      const glow = g.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * 4);
+      glow.addColorStop(0, '#ffe7a044');
+      glow.addColorStop(1, '#ffe7a000');
       g.fillStyle = glow;
       g.fillRect(0, 0, W, H);
-      g.fillStyle = '#efe5c4';
-      g.globalAlpha = 0.85;
+      const moon = g.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr);
+      moon.addColorStop(0, '#fffbe9');
+      moon.addColorStop(0.5, '#ffeab0');
+      moon.addColorStop(1, '#f4c96b');
+      g.fillStyle = moon;
       g.beginPath();
       g.arc(mx, my, mr, 0, Math.PI * 2);
       g.fill();
-      g.globalAlpha = 1;
-      // 산 능선 세 겹 (수묵화 느낌)
-      const layers = [
-        { base: 0.58, amp: 0.1, color: '#1b2a21', seed: 1.3 },
-        { base: 0.7, amp: 0.08, color: '#16231b', seed: 2.9 },
-        { base: 0.82, amp: 0.06, color: '#111b15', seed: 4.7 },
-      ];
-      for (const L of layers) {
-        g.fillStyle = L.color;
-        g.beginPath();
-        g.moveTo(0, H);
-        for (let x = 0; x <= W; x += 8) {
-          const u = x / W;
-          const y = H * (L.base - L.amp * (0.6 * Math.sin(u * 5.1 + L.seed) + 0.3 * Math.sin(u * 11.7 + L.seed * 2) + 0.1 * Math.sin(u * 23 + L.seed * 3)));
-          g.lineTo(x, y);
+      // 한옥 지붕 두 겹 (먼 집은 보라색, 가까운 집은 먹색 + 창호 불빛)
+      const roof = new Path2D('M0 96C40 100 70 92 96 70L150 34H250L304 70C330 92 360 100 400 96C370 112 340 112 318 108H82C60 112 30 112 0 96ZM132 36Q200 18 268 36L272 44Q200 28 128 44ZM70 106H330V200H70Z');
+      const house = (x, y, w, color, lit) => {
+        const k = w / 400;
+        g.save();
+        g.translate(x, y);
+        g.scale(k, k);
+        g.fillStyle = color;
+        g.fill(roof);
+        g.fillRect(0, 199, 400, 400);
+        if (lit) {
+          g.shadowColor = '#ffb65c';
+          g.shadowBlur = 14;
+          g.fillStyle = '#ffb65c';
+          for (const wx of [96, 171, 246]) g.fillRect(wx, 128, 58, 50);
+          g.shadowBlur = 0;
+          g.fillStyle = '#5b2a10';
+          for (const wx of [96, 171, 246]) {
+            for (let i = 1; i < 6; i++) g.fillRect(wx + i * 9.7, 128, 1.6, 50);
+            for (let j = 1; j < 5; j++) g.fillRect(wx, 128 + j * 10, 58, 1.6);
+          }
         }
-        g.lineTo(W, H);
-        g.closePath();
+        g.restore();
+      };
+      const base = H * 0.76;
+      const unit = Math.max(260, W / 4.2);
+      for (let i = -1, x = -unit * 0.3; x < W; i++, x += unit * 0.82) house(x, base - unit * 0.32 - (i % 2 ? 18 : 0), unit, '#241a63', false);
+      for (let i = 0, x = -unit * 0.5; x < W; i++, x += unit * 1.15) house(x, base - unit * 0.18 + (i % 2 ? 26 : 0), unit * 1.1, '#07051a', true);
+      // 아래쪽 안개
+      const haze = g.createLinearGradient(0, H * 0.6, 0, H);
+      haze.addColorStop(0, '#06051a00');
+      haze.addColorStop(1, '#06051acc');
+      g.fillStyle = haze;
+      g.fillRect(0, H * 0.6, W, H * 0.4);
+      // 홍등 줄 (판 바깥 양옆)
+      g.strokeStyle = '#3a2c66';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(-10, 60);
+      g.quadraticCurveTo(W * 0.5, 150, W + 10, 56);
+      g.stroke();
+      const lantern = (x, y, r) => {
+        g.fillStyle = '#4a3a70';
+        g.fillRect(x - 0.75, y - r * 2.2, 1.5, r * 1.4);
+        g.save();
+        g.shadowColor = '#ff4a3d';
+        g.shadowBlur = r * 1.6;
+        const lg = g.createRadialGradient(x, y - r * 0.15, r * 0.1, x, y, r * 1.1);
+        lg.addColorStop(0, '#ffe2a0');
+        lg.addColorStop(0.35, '#ff8a4a');
+        lg.addColorStop(0.65, '#ff4a3d');
+        lg.addColorStop(1, '#9d1426');
+        g.fillStyle = lg;
+        g.beginPath();
+        g.ellipse(x, y, r, r * 1.25, 0, 0, Math.PI * 2);
         g.fill();
+        g.restore();
+        g.fillStyle = '#2b1430';
+        g.fillRect(x - r * 0.55, y - r * 1.3, r * 1.1, r * 0.22);
+        g.fillRect(x - r * 0.55, y + r * 1.1, r * 1.1, r * 0.22);
+      };
+      const used = this.fields || [];
+      for (const fx of [0.05, 0.14, 0.23, 0.77, 0.95]) {
+        const x = W * fx;
+        if (used.some((f) => x > f.x - 30 && x < f.x + f.w + 30)) continue; // 판 뒤에 숨는 홍등은 그리지 않는다
+        const t = fx;
+        const y = 60 + (150 - 60) * 4 * t * (1 - t) * 0.95 + 34;
+        lantern(x, y, Math.max(14, Math.min(22, W * 0.014)));
       }
       return c;
     }
@@ -530,27 +592,30 @@
     drawTopBar(g, now) {
       const W = this.W;
       const sec = this.song.sectionAt(Math.max(0, now));
-      g.fillStyle = '#0a0f0ccc';
+      g.fillStyle = '#0a0820d9';
       g.fillRect(0, 0, W, 52);
-      g.fillStyle = '#f4f5eb';
-      g.font = `800 16px ${FONT}`;
+      g.fillStyle = '#fff4e6';
+      g.font = `400 19px ${TITLE_FONT}`;
       g.textBaseline = 'middle';
       g.textAlign = 'left';
       g.fillText(`♬ ${this.song.title}`, 18, 26);
       const tw = g.measureText(`♬ ${this.song.title}`).width;
       g.font = `500 11px ${FONT}`;
-      g.fillStyle = '#9ba79d';
+      g.fillStyle = '#b3acd6';
       if (W > 520) g.fillText(`${this.song.subtitle} · ${sec.label}`, 30 + tw, 27);
       // 난이도 배지
       g.textAlign = 'right';
       g.font = `800 12px ${FONT}`;
-      g.fillStyle = '#c3f36b';
+      g.fillStyle = '#ffc94a';
       g.fillText(`난이도 ${this.difficulty}`, W - 70, 26);
       // 진행 막대
       const p = Math.max(0, Math.min(1, now / this.endTime));
       g.fillStyle = '#ffffff14';
       g.fillRect(0, 50, W, 2);
-      g.fillStyle = '#c3f36b';
+      const bar = g.createLinearGradient(0, 0, W, 0);
+      bar.addColorStop(0, '#ff4f9a');
+      bar.addColorStop(1, '#ffc94a');
+      g.fillStyle = bar;
       g.fillRect(0, 50, W * p, 2);
     }
 
@@ -564,12 +629,16 @@
       const span = hitY - noteTop;
 
       // 판 바탕
-      g.fillStyle = '#070b09d0';
+      g.fillStyle = '#0b0926d6';
       roundRect(g, x, top, w, H - top - 12, 14);
       g.fill();
-      g.strokeStyle = '#ffffff1a';
-      g.lineWidth = 1;
+      g.save();
+      g.strokeStyle = hexA(PLAYER_COLORS[pl.index], 0.45);
+      g.shadowColor = PLAYER_COLORS[pl.index];
+      g.shadowBlur = 16;
+      g.lineWidth = 1.2;
       g.stroke();
+      g.restore();
 
       // 레인 구분선과 누를 때 빛
       for (let lane = 0; lane < 4; lane++) {
@@ -591,7 +660,7 @@
       }
 
       // 판정선: 단청 무늬 띠
-      const band = ['#2f8f6b', '#e5483f', '#f2b632', '#3d7fe9', '#efeadc'];
+      const band = ['#2fbf8f', '#ff3b5c', '#ffc94a', '#4d8bff', '#fff1d6'];
       const seg = 10;
       for (let i = 0, sx = x + 6; sx < x + w - 6; i++, sx += seg) {
         g.fillStyle = band[i % band.length];
@@ -604,7 +673,7 @@
         const r = Math.min(laneW * 0.34, 30);
         g.beginPath();
         g.arc(cx, hitY, r, 0, Math.PI * 2);
-        g.fillStyle = pl.pressed[lane] ? hexA(LANE_COLORS[lane], 0.45) : '#0b100dcc';
+        g.fillStyle = pl.pressed[lane] ? hexA(LANE_COLORS[lane], 0.45) : '#0b0926e0';
         g.fill();
         g.lineWidth = 2;
         g.strokeStyle = hexA(LANE_COLORS[lane], pl.pressed[lane] ? 1 : 0.55);
@@ -654,7 +723,7 @@
         const r = Math.min(laneW * 0.34, 30) * (1 + (this.reducedMotion ? 0.2 : 0.9) * age);
         g.beginPath();
         g.arc(cx, hitY, r, 0, Math.PI * 2);
-        g.strokeStyle = hexA(b.kind === 'perfect' ? '#c3f36b' : LANE_COLORS[b.lane], 1 - age);
+        g.strokeStyle = hexA(b.kind === 'perfect' ? '#ffe066' : LANE_COLORS[b.lane], 1 - age);
         g.lineWidth = 3 * (1 - age) + 1;
         g.stroke();
       }
@@ -680,11 +749,11 @@
       const midY = noteTop + span * 0.38;
       if (pl.combo >= 3) {
         g.textAlign = 'center';
-        g.font = `900 ${Math.round(Math.min(64, w * 0.15))}px ${FONT}`;
-        g.fillStyle = '#f4f5eb2e';
+        g.font = `400 ${Math.round(Math.min(68, w * 0.16))}px ${TITLE_FONT}`;
+        g.fillStyle = '#fff4e633';
         g.fillText(pl.combo, x + w / 2, midY);
         g.font = `700 12px ${FONT}`;
-        g.fillStyle = '#f4f5eb66';
+        g.fillStyle = '#fff4e677';
         g.fillText('연속', x + w / 2, midY + 40);
       }
 
@@ -699,12 +768,15 @@
         g.scale(pop, pop);
         g.globalAlpha = age < 0.7 ? 1 : 1 - (age - 0.7) / 0.3;
         g.textAlign = 'center';
-        g.font = `900 ${Math.round(Math.min(40, w * 0.1))}px ${FONT}`;
+        g.font = `400 ${Math.round(Math.min(44, w * 0.11))}px ${TITLE_FONT}`;
         g.lineWidth = 6;
-        g.strokeStyle = '#050806';
+        g.strokeStyle = '#0a0820';
         g.strokeText(info.text, 0, 0);
         g.fillStyle = info.color;
+        g.shadowColor = info.color;
+        g.shadowBlur = 18;
         g.fillText(info.text, 0, 0);
+        g.shadowBlur = 0;
         if (j.timing) {
           g.font = `700 12px ${FONT}`;
           g.fillStyle = j.timing === '빠름' ? '#7fd3ff' : '#ff9d7a';
@@ -720,8 +792,10 @@
         g.save();
         g.globalAlpha = age < 0.75 ? 1 : 1 - (age - 0.75) / 0.25;
         g.textAlign = 'center';
-        g.font = `900 ${Math.round(Math.min(34, w * 0.085))}px ${FONT}`;
-        g.fillStyle = pc;
+        g.font = `400 ${Math.round(Math.min(36, w * 0.09))}px ${TITLE_FONT}`;
+        g.fillStyle = '#fff';
+        g.shadowColor = pc;
+        g.shadowBlur = 20;
         g.fillText(m.text, x + w / 2, midY - 56 - (this.reducedMotion ? 0 : age * 18));
         g.restore();
       }
@@ -739,15 +813,18 @@
       g.save();
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.font = `900 ${Math.round(Math.min(72, this.W * 0.12))}px ${FONT}`;
+      g.font = `400 ${Math.round(Math.min(84, this.W * 0.13))}px ${TITLE_FONT}`;
       g.lineWidth = 8;
-      g.strokeStyle = '#050806';
+      g.strokeStyle = '#0a0820';
       g.strokeText(text, this.W / 2, this.H * 0.36);
-      g.fillStyle = '#c3f36b';
+      g.fillStyle = '#fff';
+      g.shadowColor = '#ff4f9a';
+      g.shadowBlur = 28;
       g.fillText(text, this.W / 2, this.H * 0.36);
+      g.shadowBlur = 0;
       if (now < -4 * beat + 0.2 || text === '하나') {
         g.font = `600 13px ${FONT}`;
-        g.fillStyle = '#d8dccf';
+        g.fillStyle = '#e3dcff';
         const keys = KEY_LABELS[this.playerCount].map((k, i) => (this.playerCount === 2 ? `${i + 1}P ` : '') + k.join(' ')).join('   ·   ');
         g.fillText(`${keys}   (Esc 일시정지)`, this.W / 2, this.H * 0.36 + 56);
       }
@@ -766,17 +843,42 @@
     g.closePath();
   }
 
-  function drawNote(g, x, y, w, h, color) {
-    roundRect(g, x, y, w, h, h / 2);
+  // 네온 노트: 빛 번짐(shadowBlur)은 무거우므로 색·크기별로 한 번만 그려 두고 복사한다.
+  const noteSprites = new Map();
+  const GLOW = 12;
+  function noteSprite(w, h, color) {
+    const key = `${color}|${Math.round(w)}|${Math.round(h)}`;
+    let c = noteSprites.get(key);
+    if (c) return c;
+    const dpr = Math.min(2, root.devicePixelRatio || 1);
+    c = document.createElement('canvas');
+    c.width = Math.ceil((w + GLOW * 2) * dpr);
+    c.height = Math.ceil((h + GLOW * 2) * dpr);
+    const g = c.getContext('2d');
+    g.scale(dpr, dpr);
+    g.shadowColor = color;
+    g.shadowBlur = GLOW;
+    roundRect(g, GLOW, GLOW, w, h, h / 2);
     g.fillStyle = color;
     g.fill();
-    g.fillStyle = '#ffffff55';
-    roundRect(g, x + 4, y + 2, w - 8, h * 0.35, h * 0.18);
+    g.shadowBlur = 0;
+    const shine = g.createLinearGradient(0, GLOW, 0, GLOW + h);
+    shine.addColorStop(0, '#ffffffaa');
+    shine.addColorStop(0.45, '#ffffff22');
+    shine.addColorStop(1, '#00000033');
+    g.fillStyle = shine;
+    roundRect(g, GLOW, GLOW, w, h, h / 2);
     g.fill();
-    g.strokeStyle = '#00000066';
-    g.lineWidth = 1.5;
-    roundRect(g, x, y, w, h, h / 2);
-    g.stroke();
+    g.fillStyle = '#ffffffcc';
+    roundRect(g, GLOW + w * 0.18, GLOW + h * 0.42, w * 0.64, Math.max(2, h * 0.16), h * 0.08);
+    g.fill();
+    if (noteSprites.size > 64) noteSprites.clear();
+    noteSprites.set(key, c);
+    return c;
+  }
+
+  function drawNote(g, x, y, w, h, color) {
+    g.drawImage(noteSprite(w, h, color), x - GLOW, y - GLOW, w + GLOW * 2, h + GLOW * 2);
   }
 
   function hexA(hex, a) {
