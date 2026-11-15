@@ -274,8 +274,15 @@
 
   const lastEvent = TOTAL_BARS * STEPS_PER_BAR;
 
+  RT.DIFFICULTY = DIFFICULTY;
+
   RT.song = {
     id: 'moonlight-market',
+    kind: 'synth',
+    firstBeat: 0,
+    beatPhase(time) {
+      return (((time / BEAT) % 1) + 1) % 1;
+    },
     title: '달빛 장터',
     subtitle: '국악 힙합 · 조선팝',
     bpm: BPM,

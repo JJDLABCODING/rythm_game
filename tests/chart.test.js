@@ -47,6 +47,41 @@ const [ph, gh, oh] = song.difficulty['하'].windows;
 const [ps, gs, os] = song.difficulty['상'].windows;
 assert(ps < ph && gs < gh && os < oh, '상 판정 범위가 하보다 좁아야 함');
 
+// 원곡(음원) 채보 검사: tools/analyze_song.py 가 만든 js/songs/*.js
+const fs = require('fs');
+const songDir = path.join(__dirname, '..', 'js', 'songs');
+for (const f of fs.readdirSync(songDir).filter((n) => n.endsWith('.js'))) require(path.join(songDir, f));
+const minGapSec = { 하: 4, 중: 2, 상: 1 };
+for (const d of globalThis.RT.songData || []) {
+  const beat = 60 / d.bpm;
+  const counts = {};
+  for (const k of ['하', '중', '상']) {
+    const notes = d.charts[k];
+    assert(notes && notes.length > 50, `${d.id} ${k}: 노트가 너무 적다`);
+    const seen = new Set();
+    let prev = -Infinity;
+    for (const [t, lane] of notes) {
+      assert(lane >= 0 && lane <= 3, `${d.id} ${k}: 레인 범위 밖`);
+      assert(t > 0 && t < d.length, `${d.id} ${k}: 곡 길이 밖 노트 ${t}`);
+      assert(t >= prev, `${d.id} ${k}: 노트 순서가 섞임`);
+      assert(!seen.has(`${t}:${lane}`), `${d.id} ${k}: 같은 시각·레인 중복 ${t}`);
+      seen.add(`${t}:${lane}`);
+      if (t !== prev) assert(t - prev >= (minGapSec[k] * beat) / 4 - 0.002, `${d.id} ${k}: 간격이 너무 좁음 ${t}`);
+      // 노트가 16분음표 격자 위에 있는지
+      const pos = (t - d.firstBeat) / (beat / 4);
+      assert(Math.abs(pos - Math.round(pos)) < 0.02, `${d.id} ${k}: 박자 격자 밖 노트 ${t}`);
+      prev = t;
+    }
+    const lanes = [0, 0, 0, 0];
+    for (const [, lane] of notes) lanes[lane]++;
+    assert(lanes.every((c) => c >= notes.length * 0.15), `${d.id} ${k}: 레인이 치우침 ${lanes}`);
+    counts[k] = notes.length;
+  }
+  assert(counts['하'] < counts['중'] && counts['중'] < counts['상'], `${d.id}: 난이도별 노트 수 순서`);
+  assert(fs.existsSync(path.join(__dirname, '..', d.audio)), `${d.id}: 음원 파일 없음 ${d.audio}`);
+  stats[d.title] = { notes: `${counts['하']}/${counts['중']}/${counts['상']}`, nps: +(counts['상'] / d.length).toFixed(2), lanes: `${d.bpm} BPM` };
+}
+
 console.log(`곡: ${song.title} (${song.bpm} BPM, ${song.length.toFixed(1)}초, 소리 이벤트 ${events.length}개)`);
-console.table(stats);
+console.table(stats); // 원곡 줄: notes = 하/중/상 노트 수, nps = 상 기준
 console.log('채보 검사 통과');

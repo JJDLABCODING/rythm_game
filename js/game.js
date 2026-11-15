@@ -141,12 +141,14 @@
 
   /* ---------- 게임 ---------- */
   class Game {
-    constructor({ players, difficulty, onHome }) {
+    // song: RT.songs 의 곡, buffer: 음원 곡이면 미리 풀어 둔 AudioBuffer
+    constructor({ players, difficulty, song, buffer, onHome }) {
       this.playerCount = players;
       this.difficulty = difficulty;
       this.onHome = onHome;
-      this.song = RT.song;
-      this.cfg = this.song.difficulty[difficulty];
+      this.song = song || RT.song;
+      this.buffer = buffer || null;
+      this.cfg = RT.DIFFICULTY[difficulty];
       this.el = document.getElementById('game');
       this.canvas = document.getElementById('game-canvas');
       this.ctx2d = this.canvas.getContext('2d');
@@ -176,12 +178,15 @@
       this.players = [];
       for (let i = 0; i < this.playerCount; i++) this.players.push(new Player(i, chart, this.cfg));
 
-      // 박 네 번으로 시작을 알린다 (하나·둘·셋·넷)
+      // 박 네 번으로 시작을 알린다 (하나·둘·셋·넷 다음이 곡의 첫 박)
       const beat = this.song.beat;
+      const first = this.song.firstBeat || 0;
       const events = this.song.buildEvents();
-      for (let i = 4; i >= 1; i--) events.unshift({ time: -i * beat, inst: 'pak', vel: i === 4 ? 1 : 0.8 });
+      for (let i = 4; i >= 1; i--) events.push({ time: first - i * beat, inst: 'pak', vel: i === 4 ? 1 : 0.8 });
       events.sort((a, b) => a.time - b.time);
-      audio.start(events, 4 * beat + 0.7);
+      const file = this.song.audio ? { buffer: this.buffer, skip: this.song.audioDelay } : null;
+      if (file && !file.buffer) throw new Error('음원을 아직 불러오지 못했습니다.');
+      audio.start(events, Math.max(0.8, 4 * beat + 0.7 - first), file);
 
       this.el.hidden = false;
       this.pauseEl.hidden = true;
@@ -307,7 +312,7 @@
     }
 
     restart() {
-      const opts = { players: this.playerCount, difficulty: this.difficulty, onHome: this.onHome };
+      const opts = { players: this.playerCount, difficulty: this.difficulty, song: this.song, buffer: this.buffer, onHome: this.onHome };
       this.destroy();
       RT.currentGame = new Game(opts);
       RT.currentGame.start();
@@ -557,7 +562,7 @@
       g.strokeStyle = '#ff2fd0';
       g.globalAlpha = 0.35 + pulse * 0.35;
       g.lineWidth = 1.5;
-      const phase = (((now / this.song.beat) % 1) + 1) % 1;
+      const phase = this.song.beatPhase(now);
       for (let i = 0; i < 14; i++) {
         const z = (i + 1 - phase) / 14; // 0 = 지평선, 1 = 화면 아래
         const y = hz + depth * z * z;
@@ -613,8 +618,8 @@
       g.clearRect(0, 0, W, H);
       g.drawImage(this.bg, 0, 0, W, H);
       // 박자 빛: 박이 떨어질 때 1 → 금방 0 으로 줄어든다
-      const beatPhase = (((now / this.song.beat) % 1) + 1) % 1;
-      this.pulse = now >= 0 && this.state === 'playing' && !this.reducedMotion ? Math.exp(-beatPhase * 7) : 0;
+      const beatPhase = this.song.beatPhase(now);
+      this.pulse = now >= (this.song.firstBeat || 0) - 0.05 && this.state === 'playing' && !this.reducedMotion ? Math.exp(-beatPhase * 7) : 0;
       this.drawFloor(g, Math.max(0, now), this.pulse);
       this.drawTopBar(g, now);
       this.players.forEach((pl, i) => this.drawField(g, pl, this.fields[i], now, wall));
@@ -847,13 +852,15 @@
     }
 
     drawCountdown(g, now) {
-      if (now >= 0.4 || this.state !== 'playing' && this.state !== 'paused') return;
+      const first = this.song.firstBeat || 0;
+      const rel = now - first; // 곡의 첫 박 기준
+      if (rel >= 0.4 || this.state !== 'playing' && this.state !== 'paused') return;
       const beat = this.song.beat;
       const words = ['하나', '둘', '셋', '넷'];
       let text = '준비';
-      if (now >= -4 * beat) {
-        const i = Math.min(3, Math.floor((now + 4 * beat) / beat));
-        text = now >= 0 ? '얼쑤!' : words[i];
+      if (rel >= -4 * beat) {
+        const i = Math.min(3, Math.floor((rel + 4 * beat) / beat));
+        text = rel >= 0 ? '얼쑤!' : words[i];
       }
       g.save();
       g.textAlign = 'center';
@@ -867,7 +874,7 @@
       g.shadowBlur = 28;
       g.fillText(text, this.W / 2, this.H * 0.36);
       g.shadowBlur = 0;
-      if (now < -4 * beat + 0.2 || text === '하나') {
+      if (rel < -4 * beat + 0.2 || text === '하나') {
         g.font = `600 13px ${FONT}`;
         g.fillStyle = '#ece3ff';
         const keys = KEY_LABELS[this.playerCount].map((k, i) => (this.playerCount === 2 ? `${i + 1}P ` : '') + k.join(' ')).join('   ·   ');

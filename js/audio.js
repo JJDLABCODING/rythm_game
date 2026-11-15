@@ -19,6 +19,34 @@
       this.t0 = 0;
       this.ksCache = new Map();
       this.lastClock = 0;
+      this.files = new Map(); // 주소 → 내려받은 음원(ArrayBuffer) 약속
+      this.decoded = new Map(); // 주소 → 풀어 둔 AudioBuffer 약속
+      this.source = null;
+    }
+
+    /* ---------- 음원 파일 ---------- */
+
+    // 곡을 고르면 미리 내려받아 둔다(소리 풀기는 AudioContext 가 생긴 뒤에).
+    prefetch(url) {
+      if (!this.files.has(url)) {
+        const p = fetch(url).then((r) => {
+          if (!r.ok) throw new Error(`음원을 받지 못했습니다 (${r.status})`);
+          return r.arrayBuffer();
+        });
+        p.catch(() => this.files.delete(url));
+        this.files.set(url, p);
+      }
+      return this.files.get(url);
+    }
+
+    async loadBuffer(url) {
+      const ctx = this.ensure();
+      if (!this.decoded.has(url)) {
+        const p = this.prefetch(url).then((data) => ctx.decodeAudioData(data.slice(0)));
+        p.catch(() => this.decoded.delete(url));
+        this.decoded.set(url, p);
+      }
+      return this.decoded.get(url);
     }
 
     ensure() {
@@ -101,7 +129,9 @@
 
     /* ---------- 곡 재생 ---------- */
 
-    start(events, delay) {
+    // events: 합성 악기·박 소리, delay: 지금부터 곡 0초까지(초)
+    // file: { buffer, skip } — 음원 곡이면 곡 0초에 맞춰 재생한다(skip = mp3 앞 인코더 지연)
+    start(events, delay, file) {
       this.stop();
       const ctx = this.ensure();
       this.run = ctx.createGain();
@@ -112,6 +142,13 @@
       this.queue = events;
       this.qi = 0;
       this.t0 = ctx.currentTime + delay;
+      if (file && file.buffer) {
+        const src = ctx.createBufferSource();
+        src.buffer = file.buffer;
+        src.connect(this.run);
+        src.start(this.t0, file.skip || 0);
+        this.source = src;
+      }
       this.timer = setInterval(() => this.pump(), 25);
       this.pump();
       return this.t0;
@@ -135,6 +172,13 @@
     stop() {
       clearInterval(this.timer);
       this.timer = null;
+      if (this.source) {
+        const src = this.source;
+        this.source = null;
+        setTimeout(() => {
+          try { src.stop(); } catch (_) { /* 이미 끝남 */ }
+        }, 120);
+      }
       if (this.run && this.ctx) {
         const now = this.ctx.currentTime;
         const run = this.run;

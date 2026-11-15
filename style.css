@@ -123,6 +123,14 @@ legend { padding: 0; margin-bottom: 11px; font-size: 14px; font-weight: 700; dis
 .num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; font-size: 12px; border: 1.5px solid var(--yellow); color: #fff; text-shadow: 0 0 6px var(--yellow); box-shadow: 0 0 6px var(--yellow), inset 0 0 5px var(--yellow); }
 .options { display: grid; gap: 10px; }
 .players { grid-template-columns: 1fr 1fr; }
+.songs { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.songs .choice:nth-child(3n+1) { --c: var(--pink); } .songs .choice:nth-child(3n+2) { --c: var(--violet); } .songs .choice:nth-child(3n) { --c: var(--yellow); }
+.songs .choice-body { padding: 14px 14px 12px; }
+.songs strong { font-size: 15px; line-height: 1.3; padding-right: 18px; word-break: keep-all; }
+.song-tag { align-self: flex-start; font-size: 10px; font-weight: 800; letter-spacing: 1px; padding: 2px 7px; border-radius: 6px; margin-bottom: 6px; color: #fff; border: 1px solid var(--c); text-shadow: 0 0 6px var(--c); box-shadow: 0 0 6px color-mix(in srgb, var(--c) 60%, transparent); }
+.neon-title.long { font-size: clamp(60px, 7.4vw, 112px); }
+.start.loading { pointer-events: none; opacity: .8; animation: none; }
+.load-error { margin: 10px 0 0; font-size: 13px; color: #fff; text-shadow: 0 0 8px var(--red); }
 .levels { grid-template-columns: repeat(3, 1fr); }
 .choice { position: relative; display: block; cursor: pointer; --c: var(--cyan); }
 .players .choice:nth-child(2) { --c: var(--pink); }

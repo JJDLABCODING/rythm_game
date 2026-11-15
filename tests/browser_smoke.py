@@ -1,19 +1,23 @@
 """브라우저 실행 검사 (선택): python3 tests/browser_smoke.py [스크린샷 폴더]
 
-Playwright(파이썬)와 Chrome이 있어야 한다. index.html을 file:// 로 열어
-1) 1인·하: 실제 키 입력 이벤트를 노트 시각에 보내 판정이 되는지,
+Playwright(파이썬)와 Chrome이 있어야 한다. 이 저장소를 임시 로컬 웹 서버(127.0.0.1, 빈 포트)로 열어
+1) 합성곡 1인·하: 실제 키 입력 이벤트를 노트 시각에 보내 판정이 되는지,
 2) Esc 일시정지·계속하기,
-3) 2인·상 자동 연주(?auto=1)로 곡 끝까지 진행 후 결과 화면,
-4) 곡 전체를 오프라인으로 합성해 소리 크기(클리핑·무음)를 확인한다.
+3) 합성곡 2인·상 자동 연주(?auto=1)로 곡 끝까지 진행 후 결과 화면,
+4) 합성곡 전체를 오프라인으로 합성해 소리 크기(클리핑·무음)를 확인하고,
+5) 원곡(음원) 곡마다 음원을 불러와 재생하며 자동 연주로 노트가 판정되는지 확인한다.
 """
+import functools
+import http.server
 import pathlib
 import sys
+import threading
 import time
 
 from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-URL = (ROOT / 'index.html').as_uri()
+SYNTH = 'label:has(input[name="song"][value="moonlight-market"])'
 OUT = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else None
 
 # 페이지 안에서 노트 시각에 맞춰 키 이벤트를 보내는 스크립트
@@ -77,8 +81,16 @@ def shot(page, name):
         page.screenshot(path=str(OUT / f'{name}.png'))
 
 
+class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+
 def main():
     problems = []
+    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(QuietHandler, directory=str(ROOT)))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    URL = f'http://127.0.0.1:{server.server_address[1]}/index.html'
     with sync_playwright() as p:
         browser = p.chromium.launch(
             executable_path='/usr/bin/google-chrome',
@@ -87,11 +99,14 @@ def main():
         page = browser.new_page(viewport={'width': 1280, 'height': 760})
         errors = []
         page.on('pageerror', lambda e: errors.append(str(e)))
-        page.on('console', lambda m: errors.append(m.text) if m.type == 'error' else None)
+        # 탭 아이콘(favicon.ico) 404 는 브라우저가 알아서 찾는 것이라 무시한다
+        page.on('console', lambda m: errors.append(f'{m.text} {m.location.get("url", "")}') if m.type == 'error' and 'favicon.ico' not in str(m.location) else None)
+        page.on('response', lambda r: errors.append(f'{r.status} {r.url}') if r.status >= 400 and not r.url.endswith('/favicon.ico') else None)
 
         # 1) 1인·하 키 입력 판정
         page.goto(URL)
         shot(page, '01-start')
+        page.click(SYNTH)
         page.click('label:has(input[name="players"][value="1"])')
         page.click('label:has(input[value="하"])')
         page.click('#start')
@@ -131,6 +146,7 @@ def main():
 
         # 3) 2인·상 자동 연주로 끝까지
         page.goto(URL + '?auto=1')
+        page.click(SYNTH)
         page.click('label:has(input[name="players"][value="2"])')
         page.click('label:has(input[value="상"])')
         page.click('#start')
@@ -156,9 +172,35 @@ def main():
         if min(mix['rmsPer4Bars'][:8]) < 0.01:
             problems.append('곡 중간에 거의 무음인 구간이 있음')
 
+        # 5) 원곡(음원) 곡: 음원을 불러와 재생하고 자동 연주로 판정되는지
+        ids = page.evaluate('() => RT.songs.filter(s => s.kind === "audio").map(s => s.id)')
+        for n, sid in enumerate(ids):
+            page.goto(URL + '?auto=1')
+            page.click(f'label:has(input[name="song"][value="{sid}"])')
+            page.click(f'label:has(input[name="players"][value="{1 + n % 2}"])')
+            page.click('label:has(input[value="중"])')
+            page.click('#start')
+            page.wait_for_function('() => RT.currentGame && RT.currentGame.state === "playing"', timeout=30000)
+            page.wait_for_timeout(14000)
+            info = page.evaluate("""() => { const g = RT.currentGame, a = RT.audio;
+              const t = a.songTime(performance.now());
+              return { title: g.song.title, playing: !!(a.source && a.source.buffer), bufSec: a.source ? +a.source.buffer.duration.toFixed(2) : 0,
+                       songTime: +t.toFixed(2), counts: g.players.map(p => p.counts), judged: g.players.map(p => p.judgedCount) }; }""")
+            shot(page, f'07-audio-{sid}')
+            print('원곡 재생:', info)
+            if not info['playing'] or info['songTime'] < 8:
+                problems.append(f'{sid}: 음원이 재생되지 않음 {info}')
+            for c, j in zip(info['counts'], info['judged']):
+                if j < 5 or c['miss'] > 0:
+                    problems.append(f'{sid}: 자동 연주 판정 이상 {info}')
+            page.keyboard.press('Escape')
+            page.wait_for_timeout(300)
+            page.click('text=시작 화면으로')
+
         if errors:
             problems.append('브라우저 오류: ' + ' | '.join(errors))
         browser.close()
+    server.shutdown()
 
     if problems:
         print('\n문제:')

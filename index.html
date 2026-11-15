@@ -10,6 +10,9 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Monoton&family=Nanum+Brush+Script&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
   <link rel="stylesheet" href="style.css">
   <script src="js/song.js" defer></script>
+  <script src="js/songs/joseon-hiphop-1.js" defer></script>
+  <script src="js/songs/joseon-hiphop-2.js" defer></script>
+  <script src="js/songs.js" defer></script>
   <script src="js/audio.js" defer></script>
   <script src="js/game.js" defer></script>
   <script src="main.js" defer></script>
@@ -50,15 +53,15 @@
   <main class="stage">
     <section class="hero" aria-labelledby="title">
       <p class="kicker">오늘 밤, 한옥 장터에서 한 판 놀아 보세</p>
-      <h1 id="title" class="neon-title"><span class="w1">달빛</span><span class="w2">장터</span></h1>
-      <p class="en-title">MOONLIGHT MARKET <b>·</b> 조선팝</p>
+      <h1 id="title" class="neon-title"><span class="w1">신명</span><span class="w2">조선힙합 1</span></h1>
+      <p class="en-title"><span id="title-en">JOSEON HIP-HOP</span> <b id="title-kind">· 원곡</b></p>
       <p class="lead">가야금이 뜯고, 대금이 울고, 장구가 친다.<br>힙합 비트 위에 내려오는 노트를 박자에 맞춰 받아 내!</p>
       <ul class="instruments" aria-label="연주 악기">
         <li>가야금</li><li>대금</li><li>장구</li><li>꽹과리</li><li>징</li><li class="beat">× 힙합 비트</li>
       </ul>
       <div class="track-info" aria-label="곡 정보">
         <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-        <span>92 BPM</span><span>1:27</span><span>국악 힙합</span>
+        <span id="info-bpm">100 BPM</span><span id="info-len">1:37</span><span id="info-kind">원곡</span>
       </div>
     </section>
 
@@ -70,7 +73,12 @@
       </div>
 
       <fieldset>
-        <legend><span class="num">壹</span> 몇 명이 놀까?</legend>
+        <legend><span class="num">壹</span> 오늘의 곡</legend>
+        <div class="options songs" id="song-options"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend><span class="num">貳</span> 몇 명이 놀까?</legend>
         <div class="options players">
           <label class="choice"><input type="radio" name="players" value="1" checked><span class="choice-body"><span class="choice-icon" aria-hidden="true">♪</span><strong>혼자 놀기</strong><small>1인 플레이</small><span class="check" aria-hidden="true">✓</span></span></label>
           <label class="choice"><input type="radio" name="players" value="2"><span class="choice-body"><span class="choice-icon" aria-hidden="true">♪♫</span><strong>둘이 겨루기</strong><small>2인 동시 대결</small><span class="check" aria-hidden="true">✓</span></span></label>
@@ -78,7 +86,7 @@
       </fieldset>
 
       <fieldset>
-        <legend><span class="num">貳</span> 난이도</legend>
+        <legend><span class="num">參</span> 난이도</legend>
         <div class="options levels">
           <label class="choice lv-1"><input type="radio" name="difficulty" value="하" checked><span class="choice-body"><span class="lv-bars" aria-hidden="true"><i></i><i></i><i></i></span><strong>하</strong><small>EASY</small><span class="check" aria-hidden="true">✓</span></span></label>
           <label class="choice lv-2"><input type="radio" name="difficulty" value="중"><span class="choice-body"><span class="lv-bars" aria-hidden="true"><i></i><i></i><i></i></span><strong>중</strong><small>NORMAL</small><span class="check" aria-hidden="true">✓</span></span></label>
