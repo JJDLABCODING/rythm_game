@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>리듬타운 · 리듬을 깨워봐</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="main.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="./index.html"><span class="brand-icon">♬</span> 리듬타운</a><span class="edition">국악의 결, 새로운 비트</span></header>
+  <main>
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow"><span></span> FIND YOUR RHYTHM</p>
+      <h1 id="title">우리의 가락에<br><em>비트를 더하다.</em></h1>
+      <p class="description">전통의 울림과 오늘의 리듬이 만나는 곳.<br>혼자서도, 함께여도. 나만의 무대를 시작해 봐.</p>
+      <div class="record-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="record"><div class="record-label">리듬<br><b>타운</b><small>SEOUL GROOVE · 01</small></div></div><span class="spark spark-one">✦</span><span class="spark spark-two">✦</span><span class="music-tag">GUGAK × GROOVE</span><div class="equalizer"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="genres"><span>국악 × HIP-HOP</span><span>SOUL</span><span>POP</span><span>JAZZ</span></div>
+    </section>
+    <section class="setup" aria-labelledby="setup-title">
+      <div class="panel-heading"><span class="eyebrow">LET’S PLAY</span><span class="step">01 / SET UP</span></div>
+      <h2 id="setup-title">오늘의 무대를 골라봐</h2><p class="panel-description">준비는 간단하게, 플레이는 신나게.</p>
+      <fieldset><legend><span class="number">01</span> 플레이 인원</legend>
+        <div class="options players">
+          <label class="choice"><input type="radio" name="players" value="1" checked><span class="choice-body"><span class="choice-top"><span class="choice-icon">♪</span><span class="check">✓</span></span><strong>1인 플레이</strong><small>나만의 리듬에 집중</small></span></label>
+          <label class="choice"><input type="radio" name="players" value="2"><span class="choice-body"><span class="choice-top"><span class="choice-icon">♫</span><span class="check">✓</span></span><strong>2인 플레이</strong><small>함께 맞추는 두 배의 재미</small></span></label>
+        </div>
+      </fieldset>
+      <fieldset class="difficulty"><legend><span class="number">02</span> 난이도</legend>
+        <div class="options levels">
+          <label class="choice"><input type="radio" name="difficulty" value="하" checked><span class="choice-body"><span class="level-bars"><i></i><i></i><i></i></span><strong>하 <small>EASY</small></strong></span></label>
+          <label class="choice"><input type="radio" name="difficulty" value="중"><span class="choice-body"><span class="level-bars"><i></i><i></i><i></i></span><strong>중 <small>NORMAL</small></strong></span></label>
+          <label class="choice"><input type="radio" name="difficulty" value="상"><span class="choice-body"><span class="level-bars"><i></i><i></i><i></i></span><strong>상 <small>HARD</small></strong></span></label>
+        </div><p class="level-description" id="level-description" aria-live="polite">첫 박자부터 천천히. 리듬과 친해지는 시간.</p>
+      </fieldset>
+      <div class="selection-summary"><span>YOUR STAGE</span><strong id="summary" aria-live="polite">1인 플레이 <b>·</b> 난이도 하</strong></div>
+      <button class="start" id="start" type="button">리듬 시작하기 <span>↗</span></button>
+      <p class="hint">선택을 마쳤다면, 너의 리듬을 보여줘.</p>
+    </section>
+  </main>
+  <footer><span>전통을 새롭게, 리듬을 자유롭게.</span><span>RHYTHM TOWN © 2026</span></footer>
+  <dialog id="ready"><span class="eyebrow">READY TO GROOVE</span><h2>무대 준비 완료!</h2><p id="ready-summary"></p><p class="dialog-note">현재는 시작 화면입니다.<br>실제 곡 선택과 게임 플레이는 추후 연결됩니다.</p><form method="dialog"><button class="start">설정으로 돌아가기 <span>↶</span></button></form></dialog>
+</body>
+</html>
