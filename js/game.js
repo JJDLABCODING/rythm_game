@@ -31,18 +31,18 @@
   RT.keyLabels = KEY_LABELS;
 
   // 오방색: 청·적·황·백
-  const LANE_COLORS = ['#4d8bff', '#ff3b5c', '#ffc94a', '#fff1d6'];
+  const LANE_COLORS = ['#2f8bff', '#ff3355', '#ffe14d', '#f4f0ff'];
   const LANE_NAMES = ['청', '적', '황', '백'];
-  const PLAYER_COLORS = ['#3ef0c1', '#ff4f9a'];
+  const PLAYER_COLORS = ['#22f3ff', '#ff2fd0'];
   const FONT = "'Noto Sans KR', system-ui, sans-serif";
   const TITLE_FONT = "'Black Han Sans', 'Noto Sans KR', system-ui, sans-serif";
 
   // 판정 이름은 판소리 추임새에서 따왔다.
   const JUDGE = {
-    perfect: { text: '얼쑤!', color: '#ffe066', weight: 1 },
-    great: { text: '좋다!', color: '#4dd8ff', weight: 0.7 },
-    good: { text: '잘한다', color: '#ff9f5a', weight: 0.4 },
-    miss: { text: '어이쿠', color: '#9a93c4', weight: 0 },
+    perfect: { text: '얼쑤!', color: '#ffe14d', weight: 1 },
+    great: { text: '좋다!', color: '#22f3ff', weight: 0.7 },
+    good: { text: '잘한다', color: '#ff8a3d', weight: 0.4 },
+    miss: { text: '어이쿠', color: '#8d7fb5', weight: 0 },
   };
   const MILESTONES = { 20: '얼씨구!', 50: '좋구나!', 100: '지화자!', 150: '명창이로다!', 200: '얼씨구 절씨구!' };
 
@@ -437,115 +437,143 @@
       this.bg = this.paintBackground(W, H, dpr);
     }
 
-    // 밤하늘·달·한옥 지붕·홍등 배경 (창 크기가 바뀔 때만 다시 그린다)
+    // 네온 배경: 밤하늘, 줄무늬 해, 네온 선 한옥 지붕, 네온 홍등 (창 크기가 바뀔 때만 다시 그린다)
+    // 지평선 아래 격자 바닥은 박자에 맞춰 움직이므로 매 프레임 drawFloor 에서 그린다.
     paintBackground(W, H, dpr) {
       const c = document.createElement('canvas');
       c.width = Math.round(W * dpr);
       c.height = Math.round(H * dpr);
       const g = c.getContext('2d');
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const sky = g.createRadialGradient(W * 0.7, -H * 0.1, 0, W * 0.7, -H * 0.1, Math.max(W, H) * 1.1);
-      sky.addColorStop(0, '#3a1f6e');
-      sky.addColorStop(0.4, '#170f3a');
-      sky.addColorStop(1, '#0a0820');
+      const horizon = (this.horizon = H * 0.64);
+      const sky = g.createLinearGradient(0, 0, 0, horizon);
+      sky.addColorStop(0, '#05010d');
+      sky.addColorStop(0.65, '#14042a');
+      sky.addColorStop(1, '#3b0a52');
       g.fillStyle = sky;
-      g.fillRect(0, 0, W, H);
-      // 별 (늘 같은 자리에 찍히도록 고정된 난수)
+      g.fillRect(0, 0, W, horizon);
+      const ground = g.createLinearGradient(0, horizon, 0, H);
+      ground.addColorStop(0, '#1a0430');
+      ground.addColorStop(0.6, '#05010d');
+      g.fillStyle = ground;
+      g.fillRect(0, horizon, W, H - horizon);
+      // 별
       let seed = 7;
       const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-      for (let i = 0; i < 90; i++) {
-        g.globalAlpha = 0.25 + rnd() * 0.6;
-        g.fillStyle = '#fff6e0';
-        g.fillRect(rnd() * W, rnd() * H * 0.6, rnd() < 0.15 ? 2 : 1.2, rnd() < 0.15 ? 2 : 1.2);
+      g.fillStyle = '#fff';
+      for (let i = 0; i < 80; i++) {
+        g.globalAlpha = 0.2 + rnd() * 0.6;
+        const sz = rnd() < 0.15 ? 2 : 1.2;
+        g.fillRect(rnd() * W, rnd() * horizon * 0.8, sz, sz);
       }
       g.globalAlpha = 1;
-      // 달
-      const mx = W * 0.86;
-      const my = H * 0.2;
-      const mr = Math.min(W, H) * 0.08;
-      const glow = g.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * 4);
-      glow.addColorStop(0, '#ffe7a044');
-      glow.addColorStop(1, '#ffe7a000');
-      g.fillStyle = glow;
-      g.fillRect(0, 0, W, H);
-      const moon = g.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr);
-      moon.addColorStop(0, '#fffbe9');
-      moon.addColorStop(0.5, '#ffeab0');
-      moon.addColorStop(1, '#f4c96b');
-      g.fillStyle = moon;
+      // 줄무늬 해
+      const sr = Math.min(W * 0.2, H * 0.3);
+      const sx = W / 2;
+      g.save();
       g.beginPath();
-      g.arc(mx, my, mr, 0, Math.PI * 2);
+      g.rect(0, 0, W, horizon);
+      g.clip();
+      g.shadowColor = '#ff2fd0';
+      g.shadowBlur = 60;
+      const sun = g.createLinearGradient(0, horizon - sr, 0, horizon + sr * 0.3);
+      sun.addColorStop(0, '#ffe14d');
+      sun.addColorStop(0.45, '#ff8a3d');
+      sun.addColorStop(0.85, '#ff2fd0');
+      sun.addColorStop(1, '#9b5cff');
+      g.fillStyle = sun;
+      g.beginPath();
+      g.arc(sx, horizon + sr * 0.15, sr, 0, Math.PI * 2);
       g.fill();
-      // 한옥 지붕 두 겹 (먼 집은 보라색, 가까운 집은 먹색 + 창호 불빛)
-      const roof = new Path2D('M0 96C40 100 70 92 96 70L150 34H250L304 70C330 92 360 100 400 96C370 112 340 112 318 108H82C60 112 30 112 0 96ZM132 36Q200 18 268 36L272 44Q200 28 128 44ZM70 106H330V200H70Z');
-      const house = (x, y, w, color, lit) => {
+      g.shadowBlur = 0;
+      g.fillStyle = sky; // 줄무늬는 하늘색으로 칠해 해를 가른다
+      for (let i = 0; i < 6; i++) {
+        const y = horizon - sr * 0.55 + i * sr * 0.14;
+        g.fillRect(sx - sr - 2, y, sr * 2 + 4, 2 + i * 1.6);
+      }
+      g.restore();
+      // 네온 선 한옥 지붕
+      const roof = new Path2D('M0 96C40 100 70 92 96 70L150 34H250L304 70C330 92 360 100 400 96C370 112 340 112 318 108H82C60 112 30 112 0 96ZM132 36Q200 18 268 36L272 44Q200 28 128 44ZM70 108V200M330 108V200M120 140H176V184H120ZM224 140H280V184H224Z');
+      const house = (x, w, color, alpha) => {
         const k = w / 400;
         g.save();
-        g.translate(x, y);
+        g.translate(x, horizon - 200 * k);
         g.scale(k, k);
-        g.fillStyle = color;
+        g.globalAlpha = alpha;
+        g.fillStyle = '#07010f';
         g.fill(roof);
-        g.fillRect(0, 199, 400, 400);
-        if (lit) {
-          g.shadowColor = '#ffb65c';
-          g.shadowBlur = 14;
-          g.fillStyle = '#ffb65c';
-          for (const wx of [96, 171, 246]) g.fillRect(wx, 128, 58, 50);
-          g.shadowBlur = 0;
-          g.fillStyle = '#5b2a10';
-          for (const wx of [96, 171, 246]) {
-            for (let i = 1; i < 6; i++) g.fillRect(wx + i * 9.7, 128, 1.6, 50);
-            for (let j = 1; j < 5; j++) g.fillRect(wx, 128 + j * 10, 58, 1.6);
-          }
-        }
+        g.strokeStyle = color;
+        g.lineWidth = 2.2 / k;
+        g.lineJoin = 'round';
+        g.shadowColor = color;
+        g.shadowBlur = 12;
+        g.stroke(roof);
         g.restore();
       };
-      const base = H * 0.76;
-      const unit = Math.max(260, W / 4.2);
-      for (let i = -1, x = -unit * 0.3; x < W; i++, x += unit * 0.82) house(x, base - unit * 0.32 - (i % 2 ? 18 : 0), unit, '#241a63', false);
-      for (let i = 0, x = -unit * 0.5; x < W; i++, x += unit * 1.15) house(x, base - unit * 0.18 + (i % 2 ? 26 : 0), unit * 1.1, '#07051a', true);
-      // 아래쪽 안개
-      const haze = g.createLinearGradient(0, H * 0.6, 0, H);
-      haze.addColorStop(0, '#06051a00');
-      haze.addColorStop(1, '#06051acc');
-      g.fillStyle = haze;
-      g.fillRect(0, H * 0.6, W, H * 0.4);
-      // 홍등 줄 (판 바깥 양옆)
-      g.strokeStyle = '#3a2c66';
-      g.lineWidth = 2;
-      g.beginPath();
-      g.moveTo(-10, 60);
-      g.quadraticCurveTo(W * 0.5, 150, W + 10, 56);
-      g.stroke();
-      const lantern = (x, y, r) => {
-        g.fillStyle = '#4a3a70';
-        g.fillRect(x - 0.75, y - r * 2.2, 1.5, r * 1.4);
-        g.save();
-        g.shadowColor = '#ff4a3d';
-        g.shadowBlur = r * 1.6;
-        const lg = g.createRadialGradient(x, y - r * 0.15, r * 0.1, x, y, r * 1.1);
-        lg.addColorStop(0, '#ffe2a0');
-        lg.addColorStop(0.35, '#ff8a4a');
-        lg.addColorStop(0.65, '#ff4a3d');
-        lg.addColorStop(1, '#9d1426');
-        g.fillStyle = lg;
-        g.beginPath();
-        g.ellipse(x, y, r, r * 1.25, 0, 0, Math.PI * 2);
-        g.fill();
-        g.restore();
-        g.fillStyle = '#2b1430';
-        g.fillRect(x - r * 0.55, y - r * 1.3, r * 1.1, r * 0.22);
-        g.fillRect(x - r * 0.55, y + r * 1.1, r * 1.1, r * 0.22);
-      };
+      const unit = Math.max(200, Math.min(W / 4, 340));
+      for (let x = -unit * 0.2; x < W; x += unit * 0.95) house(x, unit * 0.8, '#9b5cff', 0.6);
+      for (let x = -unit * 0.6; x < W; x += unit * 1.6) house(x, unit, '#22f3ff', 1);
+      // 지평선 네온
+      g.save();
+      g.shadowColor = '#ff2fd0';
+      g.shadowBlur = 24;
+      g.fillStyle = '#ff7be3';
+      g.fillRect(0, horizon - 1.5, W, 3);
+      g.restore();
+      // 네온 홍등 (판 뒤에 숨는 자리는 건너뛴다)
       const used = this.fields || [];
-      for (const fx of [0.05, 0.14, 0.23, 0.77, 0.95]) {
+      const lr = Math.max(13, Math.min(20, W * 0.013));
+      for (const fx of [0.05, 0.13, 0.21, 0.79, 0.87, 0.95]) {
         const x = W * fx;
-        if (used.some((f) => x > f.x - 30 && x < f.x + f.w + 30)) continue; // 판 뒤에 숨는 홍등은 그리지 않는다
-        const t = fx;
-        const y = 60 + (150 - 60) * 4 * t * (1 - t) * 0.95 + 34;
-        lantern(x, y, Math.max(14, Math.min(22, W * 0.014)));
+        if (used.some((f) => x > f.x - 30 && x < f.x + f.w + 30)) continue;
+        const y = 92 + Math.sin(fx * 9) * 10;
+        g.fillStyle = '#ff335588';
+        g.fillRect(x - 0.75, 52, 1.5, y - 52 - lr * 1.2);
+        g.save();
+        g.shadowColor = '#ff3355';
+        g.shadowBlur = 18;
+        g.strokeStyle = '#ff6680';
+        g.lineWidth = 2.5;
+        g.fillStyle = '#ff335522';
+        g.beginPath();
+        g.ellipse(x, y, lr, lr * 1.22, 0, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+        g.restore();
       }
       return c;
+    }
+
+    // 지평선 아래 네온 격자: 한 박자에 한 칸씩 다가온다
+    drawFloor(g, now, pulse) {
+      const W = this.W;
+      const H = this.H;
+      const hz = this.horizon;
+      const depth = H - hz;
+      g.save();
+      g.beginPath();
+      g.rect(0, hz + 2, W, depth);
+      g.clip();
+      g.strokeStyle = '#ff2fd0';
+      g.globalAlpha = 0.35 + pulse * 0.35;
+      g.lineWidth = 1.5;
+      const phase = (((now / this.song.beat) % 1) + 1) % 1;
+      for (let i = 0; i < 14; i++) {
+        const z = (i + 1 - phase) / 14; // 0 = 지평선, 1 = 화면 아래
+        const y = hz + depth * z * z;
+        g.beginPath();
+        g.moveTo(0, y);
+        g.lineTo(W, y);
+        g.stroke();
+      }
+      const cx = W / 2;
+      for (let i = -14; i <= 14; i++) {
+        g.beginPath();
+        g.moveTo(cx + i * W * 0.025, hz);
+        g.lineTo(cx + i * W * 0.16, H);
+        g.stroke();
+      }
+      g.restore();
     }
 
     /* ----- 매 프레임 ----- */
@@ -584,6 +612,10 @@
       const H = this.H;
       g.clearRect(0, 0, W, H);
       g.drawImage(this.bg, 0, 0, W, H);
+      // 박자 빛: 박이 떨어질 때 1 → 금방 0 으로 줄어든다
+      const beatPhase = (((now / this.song.beat) % 1) + 1) % 1;
+      this.pulse = now >= 0 && this.state === 'playing' && !this.reducedMotion ? Math.exp(-beatPhase * 7) : 0;
+      this.drawFloor(g, Math.max(0, now), this.pulse);
       this.drawTopBar(g, now);
       this.players.forEach((pl, i) => this.drawField(g, pl, this.fields[i], now, wall));
       this.drawCountdown(g, now);
@@ -592,29 +624,33 @@
     drawTopBar(g, now) {
       const W = this.W;
       const sec = this.song.sectionAt(Math.max(0, now));
-      g.fillStyle = '#0a0820d9';
+      g.fillStyle = '#05010de6';
       g.fillRect(0, 0, W, 52);
-      g.fillStyle = '#fff4e6';
+      g.fillStyle = '#fff';
+      g.shadowColor = '#ff2fd0';
+      g.shadowBlur = 12;
       g.font = `400 19px ${TITLE_FONT}`;
       g.textBaseline = 'middle';
       g.textAlign = 'left';
       g.fillText(`♬ ${this.song.title}`, 18, 26);
+      g.shadowBlur = 0;
       const tw = g.measureText(`♬ ${this.song.title}`).width;
       g.font = `500 11px ${FONT}`;
-      g.fillStyle = '#b3acd6';
+      g.fillStyle = '#a99bc9';
       if (W > 520) g.fillText(`${this.song.subtitle} · ${sec.label}`, 30 + tw, 27);
       // 난이도 배지
       g.textAlign = 'right';
       g.font = `800 12px ${FONT}`;
-      g.fillStyle = '#ffc94a';
+      g.fillStyle = '#ffe14d';
       g.fillText(`난이도 ${this.difficulty}`, W - 70, 26);
       // 진행 막대
       const p = Math.max(0, Math.min(1, now / this.endTime));
       g.fillStyle = '#ffffff14';
       g.fillRect(0, 50, W, 2);
       const bar = g.createLinearGradient(0, 0, W, 0);
-      bar.addColorStop(0, '#ff4f9a');
-      bar.addColorStop(1, '#ffc94a');
+      bar.addColorStop(0, '#22f3ff');
+      bar.addColorStop(0.5, '#ff2fd0');
+      bar.addColorStop(1, '#ffe14d');
       g.fillStyle = bar;
       g.fillRect(0, 50, W * p, 2);
     }
@@ -629,14 +665,16 @@
       const span = hitY - noteTop;
 
       // 판 바탕
-      g.fillStyle = '#0b0926d6';
+      const pulse = this.pulse || 0;
+      const pc0 = PLAYER_COLORS[pl.index];
+      g.fillStyle = '#05010df0';
       roundRect(g, x, top, w, H - top - 12, 14);
       g.fill();
       g.save();
-      g.strokeStyle = hexA(PLAYER_COLORS[pl.index], 0.45);
-      g.shadowColor = PLAYER_COLORS[pl.index];
-      g.shadowBlur = 16;
-      g.lineWidth = 1.2;
+      g.strokeStyle = hexA(pc0, 0.7 + pulse * 0.3);
+      g.shadowColor = pc0;
+      g.shadowBlur = 14 + pulse * 18;
+      g.lineWidth = 2;
       g.stroke();
       g.restore();
 
@@ -644,7 +682,7 @@
       for (let lane = 0; lane < 4; lane++) {
         const lx = x + lane * laneW;
         if (lane > 0) {
-          g.fillStyle = '#ffffff0d';
+          g.fillStyle = hexA(pc0, 0.12);
           g.fillRect(lx, top + 8, 1, H - top - 28);
         }
         const pressed = pl.pressed[lane];
@@ -659,28 +697,35 @@
         }
       }
 
-      // 판정선: 단청 무늬 띠
-      const band = ['#2fbf8f', '#ff3b5c', '#ffc94a', '#4d8bff', '#fff1d6'];
-      const seg = 10;
-      for (let i = 0, sx = x + 6; sx < x + w - 6; i++, sx += seg) {
-        g.fillStyle = band[i % band.length];
-        g.fillRect(sx, hitY - 3, Math.min(seg - 2, x + w - 6 - sx), 6);
-      }
+      // 판정선: 박자마다 번쩍이는 네온 관
+      g.save();
+      g.shadowColor = '#ff2fd0';
+      g.shadowBlur = 16 + pulse * 26;
+      g.fillStyle = '#ff7be3';
+      g.fillRect(x + 6, hitY - 2.5, w - 12, 5);
+      g.shadowBlur = 0;
+      g.fillStyle = hexA('#ffffff', 0.75 + pulse * 0.25);
+      g.fillRect(x + 6, hitY - 1, w - 12, 2);
+      g.restore();
 
       // 받침 원
       for (let lane = 0; lane < 4; lane++) {
         const cx = x + lane * laneW + laneW / 2;
         const r = Math.min(laneW * 0.34, 30);
+        g.save();
         g.beginPath();
         g.arc(cx, hitY, r, 0, Math.PI * 2);
-        g.fillStyle = pl.pressed[lane] ? hexA(LANE_COLORS[lane], 0.45) : '#0b0926e0';
+        g.fillStyle = pl.pressed[lane] ? hexA(LANE_COLORS[lane], 0.5) : '#05010de6';
         g.fill();
-        g.lineWidth = 2;
-        g.strokeStyle = hexA(LANE_COLORS[lane], pl.pressed[lane] ? 1 : 0.55);
+        g.lineWidth = 2.5;
+        g.strokeStyle = hexA(LANE_COLORS[lane], pl.pressed[lane] ? 1 : 0.85);
+        g.shadowColor = LANE_COLORS[lane];
+        g.shadowBlur = pl.pressed[lane] ? 26 : 10;
         g.stroke();
+        g.restore();
         // 키 표시
         const label = KEY_LABELS[this.playerCount][pl.index][lane];
-        g.fillStyle = pl.pressed[lane] ? '#ffffff' : '#d8dccf';
+        g.fillStyle = '#ffffff';
         g.font = `800 ${Math.round(Math.min(18, laneW * 0.22))}px ${FONT}`;
         g.textAlign = 'center';
         g.textBaseline = 'middle';
@@ -723,7 +768,7 @@
         const r = Math.min(laneW * 0.34, 30) * (1 + (this.reducedMotion ? 0.2 : 0.9) * age);
         g.beginPath();
         g.arc(cx, hitY, r, 0, Math.PI * 2);
-        g.strokeStyle = hexA(b.kind === 'perfect' ? '#ffe066' : LANE_COLORS[b.lane], 1 - age);
+        g.strokeStyle = hexA(b.kind === 'perfect' ? '#ffe14d' : LANE_COLORS[b.lane], 1 - age);
         g.lineWidth = 3 * (1 - age) + 1;
         g.stroke();
       }
@@ -750,7 +795,7 @@
       if (pl.combo >= 3) {
         g.textAlign = 'center';
         g.font = `400 ${Math.round(Math.min(68, w * 0.16))}px ${TITLE_FONT}`;
-        g.fillStyle = '#fff4e633';
+        g.fillStyle = hexA(pc, 0.22 + pulse * 0.25);
         g.fillText(pl.combo, x + w / 2, midY);
         g.font = `700 12px ${FONT}`;
         g.fillStyle = '#fff4e677';
@@ -770,7 +815,7 @@
         g.textAlign = 'center';
         g.font = `400 ${Math.round(Math.min(44, w * 0.11))}px ${TITLE_FONT}`;
         g.lineWidth = 6;
-        g.strokeStyle = '#0a0820';
+        g.strokeStyle = '#05010d';
         g.strokeText(info.text, 0, 0);
         g.fillStyle = info.color;
         g.shadowColor = info.color;
@@ -815,16 +860,16 @@
       g.textBaseline = 'middle';
       g.font = `400 ${Math.round(Math.min(84, this.W * 0.13))}px ${TITLE_FONT}`;
       g.lineWidth = 8;
-      g.strokeStyle = '#0a0820';
+      g.strokeStyle = '#05010d';
       g.strokeText(text, this.W / 2, this.H * 0.36);
       g.fillStyle = '#fff';
-      g.shadowColor = '#ff4f9a';
+      g.shadowColor = '#ff2fd0';
       g.shadowBlur = 28;
       g.fillText(text, this.W / 2, this.H * 0.36);
       g.shadowBlur = 0;
       if (now < -4 * beat + 0.2 || text === '하나') {
         g.font = `600 13px ${FONT}`;
-        g.fillStyle = '#e3dcff';
+        g.fillStyle = '#ece3ff';
         const keys = KEY_LABELS[this.playerCount].map((k, i) => (this.playerCount === 2 ? `${i + 1}P ` : '') + k.join(' ')).join('   ·   ');
         g.fillText(`${keys}   (Esc 일시정지)`, this.W / 2, this.H * 0.36 + 56);
       }
@@ -858,20 +903,17 @@
     g.scale(dpr, dpr);
     g.shadowColor = color;
     g.shadowBlur = GLOW;
-    roundRect(g, GLOW, GLOW, w, h, h / 2);
-    g.fillStyle = color;
+    roundRect(g, GLOW + 1.5, GLOW + 1.5, w - 3, h - 3, (h - 3) / 2);
+    g.fillStyle = hexA(color, 0.35);
     g.fill();
+    g.lineWidth = 3;
+    g.strokeStyle = color;
+    g.stroke();
     g.shadowBlur = 0;
-    const shine = g.createLinearGradient(0, GLOW, 0, GLOW + h);
-    shine.addColorStop(0, '#ffffffaa');
-    shine.addColorStop(0.45, '#ffffff22');
-    shine.addColorStop(1, '#00000033');
-    g.fillStyle = shine;
-    roundRect(g, GLOW, GLOW, w, h, h / 2);
-    g.fill();
-    g.fillStyle = '#ffffffcc';
-    roundRect(g, GLOW + w * 0.18, GLOW + h * 0.42, w * 0.64, Math.max(2, h * 0.16), h * 0.08);
-    g.fill();
+    g.lineWidth = 1.4;
+    g.strokeStyle = '#ffffffd0';
+    roundRect(g, GLOW + 3, GLOW + 3, w - 6, h - 6, (h - 6) / 2);
+    g.stroke();
     if (noteSprites.size > 64) noteSprites.clear();
     noteSprites.set(key, c);
     return c;

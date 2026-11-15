@@ -7,7 +7,7 @@
   <meta name="description" content="국악 힙합 리듬 게임 리듬타운. 한옥 밤거리 장터에서 가야금·대금·장구 박자에 맞춰 놀아 보자.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Nanum+Brush+Script&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Monoton&family=Nanum+Brush+Script&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
   <link rel="stylesheet" href="style.css">
   <script src="js/song.js" defer></script>
   <script src="js/audio.js" defer></script>
@@ -15,52 +15,31 @@
   <script src="main.js" defer></script>
 </head>
 <body>
-  <!-- 배경: 밤하늘, 달, 홍등, 한옥 지붕 -->
+  <!-- 배경: 네온 해, 네온 선 한옥 지붕, 흘러오는 격자 바닥, 네온 홍등 -->
   <div class="scene" aria-hidden="true">
     <div class="stars"></div>
-    <div class="stars twinkle"></div>
-    <div class="moon"></div>
-    <svg class="garland" viewBox="0 0 1440 140" preserveAspectRatio="none"><path d="M-20 18 Q360 120 720 40 T1460 30"/></svg>
-    <div class="lanterns">
-      <span class="lantern" style="--x:27%;--len:22px;--d:0s"><i>樂</i></span>
-      <span class="lantern" style="--x:38%;--len:46px;--d:-1.3s"><i>福</i></span>
-      <span class="lantern small" style="--x:49%;--len:20px;--d:-.6s"></span>
-      <span class="lantern" style="--x:60%;--len:40px;--d:-2s"><i>興</i></span>
-      <span class="lantern small" style="--x:70%;--len:12px;--d:-.9s"></span>
-    </div>
-    <svg class="town" viewBox="0 0 1440 320" preserveAspectRatio="xMidYMax slice">
+    <div class="sun"></div>
+    <svg class="skyline" viewBox="0 0 1440 260" preserveAspectRatio="xMidYMax slice">
       <defs>
-        <pattern id="lattice" width="9" height="9" patternUnits="userSpaceOnUse">
-          <rect width="9" height="9" fill="#ffb65c"/>
-          <path d="M0 0H9M0 0V9" stroke="#5b2a10" stroke-width="1.6"/>
-        </pattern>
-        <symbol id="hanok" viewBox="0 0 400 200">
-          <path d="M0 96C40 100 70 92 96 70L150 34H250L304 70C330 92 360 100 400 96C370 112 340 112 318 108H82C60 112 30 112 0 96Z"/>
-          <path d="M132 36Q200 18 268 36L272 44Q200 28 128 44Z"/>
-          <rect x="70" y="106" width="260" height="94"/>
-        </symbol>
-        <symbol id="hanok-lit" viewBox="0 0 400 200">
-          <use href="#hanok"/>
-          <rect x="96" y="128" width="58" height="50" fill="url(#lattice)" class="win"/>
-          <rect x="171" y="128" width="58" height="50" fill="url(#lattice)" class="win w2"/>
-          <rect x="246" y="128" width="58" height="50" fill="url(#lattice)" class="win w3"/>
-        </symbol>
+        <path id="roof" d="M0 96C40 100 70 92 96 70L150 34H250L304 70C330 92 360 100 400 96C370 112 340 112 318 108H82C60 112 30 112 0 96ZM132 36Q200 18 268 36L272 44Q200 28 128 44ZM70 108V200M330 108V200M120 140H176V184H120ZM224 140H280V184H224Z"/>
       </defs>
       <g class="far">
-        <rect x="0" y="296" width="1440" height="30"/>
-        <use href="#hanok" x="-60" y="96" width="380" height="190"/>
-        <use href="#hanok" x="250" y="70" width="440" height="220"/>
-        <use href="#hanok" x="620" y="104" width="360" height="180"/>
-        <use href="#hanok" x="930" y="80" width="420" height="210"/>
-        <use href="#hanok" x="1260" y="100" width="380" height="190"/>
+        <use href="#roof" transform="translate(470 70) scale(1)"/>
+        <use href="#roof" transform="translate(690 96) scale(.8)"/>
+        <use href="#roof" transform="translate(990 74) scale(.95)"/>
+        <use href="#roof" transform="translate(1300 96) scale(.8)"/>
       </g>
       <g class="near">
-        <use href="#hanok-lit" x="-120" y="96" width="440" height="220"/>
-        <use href="#hanok-lit" x="420" y="128" width="380" height="190"/>
-        <use href="#hanok-lit" x="1000" y="86" width="470" height="235"/>
+        <use href="#roof" transform="translate(520 126) scale(1)"/>
+        <use href="#roof" transform="translate(1080 112) scale(1.15)"/>
       </g>
     </svg>
-    <div class="haze"></div>
+    <div class="floor"><div class="grid"></div></div>
+    <div class="lanterns">
+      <span class="lantern" style="--x:27%;--len:20px;--d:0s"><i>樂</i></span>
+      <span class="lantern" style="--x:38%;--len:44px;--d:-1.3s"><i>興</i></span>
+      <span class="lantern" style="--x:60%;--len:34px;--d:-2s"><i>福</i></span>
+    </div>
   </div>
 
   <header class="topbar">
@@ -93,8 +72,8 @@
       <fieldset>
         <legend><span class="num">壹</span> 몇 명이 놀까?</legend>
         <div class="options players">
-          <label class="choice"><input type="radio" name="players" value="1" checked><span class="choice-body"><span class="choice-icon" aria-hidden="true">🏮</span><strong>혼자 놀기</strong><small>1인 플레이</small><span class="check" aria-hidden="true">✓</span></span></label>
-          <label class="choice"><input type="radio" name="players" value="2"><span class="choice-body"><span class="choice-icon" aria-hidden="true">🏮🏮</span><strong>둘이 겨루기</strong><small>2인 동시 대결</small><span class="check" aria-hidden="true">✓</span></span></label>
+          <label class="choice"><input type="radio" name="players" value="1" checked><span class="choice-body"><span class="choice-icon" aria-hidden="true">♪</span><strong>혼자 놀기</strong><small>1인 플레이</small><span class="check" aria-hidden="true">✓</span></span></label>
+          <label class="choice"><input type="radio" name="players" value="2"><span class="choice-body"><span class="choice-icon" aria-hidden="true">♪♫</span><strong>둘이 겨루기</strong><small>2인 동시 대결</small><span class="check" aria-hidden="true">✓</span></span></label>
         </div>
       </fieldset>
 
