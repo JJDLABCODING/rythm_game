@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>리듬타운 · 리듬을 깨워봐</title>
   <link rel="stylesheet" href="style.css">
+  <script src="js/song.js" defer></script>
+  <script src="js/audio.js" defer></script>
+  <script src="js/game.js" defer></script>
   <script src="main.js" defer></script>
 </head>
 <body>
@@ -34,11 +37,17 @@
         </div><p class="level-description" id="level-description" aria-live="polite">첫 박자부터 천천히. 리듬과 친해지는 시간.</p>
       </fieldset>
       <div class="selection-summary"><span>YOUR STAGE</span><strong id="summary" aria-live="polite">1인 플레이 <b>·</b> 난이도 하</strong></div>
+      <div class="key-guide" id="key-guide" aria-live="polite"></div>
       <button class="start" id="start" type="button">리듬 시작하기 <span>↗</span></button>
       <p class="hint">선택을 마쳤다면, 너의 리듬을 보여줘.</p>
     </section>
   </main>
   <footer><span>전통을 새롭게, 리듬을 자유롭게.</span><span>RHYTHM TOWN © 2026</span></footer>
-  <dialog id="ready"><span class="eyebrow">READY TO GROOVE</span><h2>무대 준비 완료!</h2><p id="ready-summary"></p><p class="dialog-note">현재는 시작 화면입니다.<br>실제 곡 선택과 게임 플레이는 추후 연결됩니다.</p><form method="dialog"><button class="start">설정으로 돌아가기 <span>↶</span></button></form></dialog>
+  <section id="game" class="game" hidden aria-label="게임 화면">
+    <canvas id="game-canvas" tabindex="-1" aria-label="리듬 게임 무대. 노트가 판정선에 닿을 때 키를 누르세요."></canvas>
+    <button class="pause-button" id="pause-button" type="button" aria-label="일시정지">Ⅱ</button>
+    <div class="overlay" id="pause-menu" hidden></div>
+    <div class="overlay" id="result" hidden></div>
+  </section>
 </body>
 </html>

@@ -8,10 +8,23 @@
 ## 저장소 준비
 - 원격 저장소: https://github.com/JJDLABCODING/rythm_game.git
 - 기준 브랜치: `master`.
-- 원격 저장소는 초기 확인 시 브랜치와 커밋이 없는 빈 저장소였다. 로컬 `master`와 `origin` 연결을 준비했다.
-- 시작 화면은 설치나 빌드가 필요 없는 HTML/CSS/JavaScript로 구현한다. `index.html`을 브라우저에서 열어 실행하며, JavaScript 문법은 `node --check main.js`로 확인한다.
+- 2026-11-15 원격 `master`를 이 폴더에 받았다(시작 화면 `index.html`·`style.css`·`main.js`, 버튼 효과 라이브러리 `vendor/liquid-glass-js/`).
+- 게임은 설치나 빌드가 필요 없는 HTML/CSS/JavaScript(모듈 없이 전역 `RT` 객체)로 구현한다. `index.html`을 브라우저에서 `file://`로 열어도 실행되어야 하므로 ES 모듈·fetch로 파일을 읽는 방식은 쓰지 않는다.
+- 구조: `js/song.js`(곡 이벤트·채보 생성) → `js/audio.js`(Web Audio 합성·재생·게임 시계) → `js/game.js`(화면·입력·판정) → `main.js`(시작 화면). 노트는 곡 이벤트에서 만들어 소리와 박자가 항상 맞게 한다.
+- 음악은 음원 파일 없이 Web Audio로 직접 합성한다(가야금 Karplus-Strong, 대금, 장구 덩·쿵·덕·기덕, 꽹과리, 징, 박, 힙합 드럼·베이스).
+- 2026-11-15 첫 곡 「달빛 장터」(국악 힙합·조선팝, 92 BPM, D 계면조 5음음계)와 1인·2인, 상·중·하 플레이를 완성했다. 사용자가 좋아하는 참고 음악: 국악 힙합·조선팝 쇼츠(https://www.youtube.com/shorts/0_iiIhajiiE).
 - 게임 개발을 시작할 때 원격 저장소의 `master`를 이 작업 폴더에 가져온다. 기존 문서와 사용자 변경 사항을 보존하며, 폴더를 덮어쓰거나 삭제하지 않는다.
 - 소스를 가져온 뒤 실제 프로젝트 구조와 실행·빌드·테스트 명령을 확인하여 이 문서를 갱신한다. 확인하지 않은 명령이나 기술 스택을 가정하지 않는다.
+
+## 작업 범위 제한
+- 2026-11-15 사용자 지시: 다른 지시가 있을 때까지 이 저장소 폴더(`리듬게임/`) 밖의 자료를 참고하지 않고, 파일 읽기·수정도 이 폴더 안에서만 한다.
+- 예외(2026-11-15 사용자 지시): 주원 사이트 배포 작업은 상위 폴더 `alex-joowon/`의 배포 파일(`games.json`, `tools/build.sh`, `deploy/`, `hub/thumbs/`)을 함께 고친다.
+
+## 배포 (주원 사이트)
+- 주소: https://joowon.axcoding.co.kr/rhythm/ (게임 바로가기 `/`에 카드로 표시).
+- 사이트 빌드(`alex-joowon/tools/build.sh`)가 이 저장소의 GitHub `master`를 직접 받아 올린다. 로컬 작업 폴더가 아니라 GitHub에 올라간 코드가 배포되므로, 반영하려면 먼저 push 한다.
+- 배포에서 빠지는 것: `.git`, `tests/`, `*.md`. 배포된 커밋은 `/rhythm/version.txt`에 기록된다.
+- 반영 순서: `git push origin master` → `/home/alex919/alex-joowon/tools/build.sh` → `sudo /home/alex919/alex-joowon/deploy/install.sh`.
 
 ## 개발 범위
 - 게임 개발을 우선하며 서버 관련 작업은 마지막 단계에 진행한다.
@@ -29,5 +42,8 @@
 
 ## 검증
 - 구현 후 프로젝트에서 실제로 제공하는 관련 빌드·테스트·린트 명령을 실행한다.
+- 문법: `for f in main.js js/*.js; do node --check "$f"; done`
+- 채보: `node tests/chart.test.js` (노트가 소리 나는 시각에 있는지, 난이도별 간격·밀도·레인)
+- 브라우저: `python3 tests/browser_smoke.py [스크린샷 폴더]` (Playwright·`/usr/bin/google-chrome`, 키 입력 판정·일시정지·2인 자동 연주 끝까지·소리 클리핑, 약 2분)
 - 게임 변경은 가능한 범위에서 입력, 리듬 판정, 난이도, 1인·2인 동작에 미치는 영향을 확인한다.
 - 실행하지 못한 검증은 결과 보고에 명확히 표시한다.

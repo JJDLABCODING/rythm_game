@@ -11,20 +11,47 @@ function getSelection() {
   };
 }
 
+function keyGuideHtml(players) {
+  const keys = (list) => list.map((k) => `<kbd>${k}</kbd>`).join('');
+  if (players === 2) {
+    return `<span><b>1P</b>${keys(RT.keyLabels[2][0])}</span><span><b>2P</b>${keys(RT.keyLabels[2][1])}<small>또는 방향키</small></span>`;
+  }
+  return `<span><b>조작</b>${keys(RT.keyLabels[1][0])}<small>또는 방향키 · 화면 터치</small></span>`;
+}
+
 function updateSelection() {
   const { players, difficulty } = getSelection();
   document.getElementById('summary').textContent = `${players}인 플레이 · 난이도 ${difficulty}`;
   document.getElementById('level-description').textContent = descriptions[difficulty];
+  document.getElementById('key-guide').innerHTML = keyGuideHtml(players);
 }
 
 document.querySelectorAll('input[type="radio"]').forEach((input) => {
   input.addEventListener('change', updateSelection);
 });
 
-document.getElementById('start').addEventListener('click', () => {
+function startGame() {
   const { players, difficulty } = getSelection();
-  document.getElementById('ready-summary').textContent = `${players}인 플레이 · 난이도 ${difficulty}`;
-  document.getElementById('ready').showModal();
+  if (RT.currentGame) RT.currentGame.destroy();
+  try {
+    RT.currentGame = new RT.Game({
+      players,
+      difficulty,
+      onHome: () => {
+        RT.currentGame = null;
+        document.getElementById('start').focus();
+      },
+    });
+    RT.currentGame.start();
+  } catch (err) {
+    console.error(err);
+    alert('게임을 시작하지 못했습니다: ' + err.message);
+  }
+}
+
+document.getElementById('start').addEventListener('click', startGame);
+document.getElementById('pause-button').addEventListener('click', () => {
+  if (RT.currentGame) RT.currentGame.pause();
 });
 
 // 브라우저가 이전 라디오 선택을 복원한 경우에도 표시를 맞춘다.
