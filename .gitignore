@@ -1,2 +1,4 @@
 # 원본 음원(WAV, 수십 MB)은 올리지 않는다. 웹용 mp3 는 tools/analyze_song.py 가 audio/ 에 만든다.
 음악/
+__pycache__/
+*.pyc
