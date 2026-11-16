@@ -13,8 +13,10 @@
   <script src="js/songs/joseon-hiphop-1.js" defer></script>
   <script src="js/songs/joseon-hiphop-2.js" defer></script>
   <script src="js/songs.js" defer></script>
+  <script src="js/hits.js" defer></script>
   <script src="js/audio.js" defer></script>
   <script src="js/game.js" defer></script>
+  <script src="js/soundlab.js" defer></script>
   <script src="main.js" defer></script>
 </head>
 <body>
@@ -102,10 +104,13 @@
       <div class="key-guide" id="key-guide" aria-live="polite"></div>
 
       <button class="start" id="start" type="button"><span class="start-text">무대 열기</span><span class="start-icon" aria-hidden="true">▶</span></button>
+      <button class="ghost lab-open" id="open-lab" type="button">🥁 타격음 고르기 · 북·장구·드럼 소리 시험</button>
     </section>
   </main>
 
   <footer class="footnote"><span>전통을 새롭게, 리듬을 자유롭게.</span><span>RHYTHM TOWN © 2026</span></footer>
+
+  <section id="sound-lab" class="lab" hidden aria-labelledby="lab-title"></section>
 
   <section id="game" class="game" hidden aria-label="게임 화면">
     <canvas id="game-canvas" tabindex="-1" aria-label="리듬 게임 무대. 노트가 판정선에 닿을 때 키를 누르세요."></canvas>

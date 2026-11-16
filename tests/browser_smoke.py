@@ -1,6 +1,7 @@
 """브라우저 실행 검사 (선택): python3 tests/browser_smoke.py [스크린샷 폴더]
 
 Playwright(파이썬)와 Chrome이 있어야 한다. 이 저장소를 임시 로컬 웹 서버(127.0.0.1, 빈 포트)로 열어
+0) 타격음 시험실에서 녹음 타격음을 모두 불러오고 고른 묶음이 저장되는지,
 1) 합성곡 1인·하: 실제 키 입력 이벤트를 노트 시각에 보내 판정이 되는지,
 2) Esc 일시정지·계속하기,
 3) 합성곡 2인·상 자동 연주(?auto=1)로 곡 끝까지 진행 후 결과 화면,
@@ -103,9 +104,26 @@ def main():
         page.on('console', lambda m: errors.append(f'{m.text} {m.location.get("url", "")}') if m.type == 'error' and 'favicon.ico' not in str(m.location) else None)
         page.on('response', lambda r: errors.append(f'{r.status} {r.url}') if r.status >= 400 and not r.url.endswith('/favicon.ico') else None)
 
-        # 1) 1인·하 키 입력 판정
+        # 0) 타격음 시험실: 녹음 소리를 모두 불러오고, 고른 소리가 저장되는지
         page.goto(URL)
         shot(page, '01-start')
+        page.click('#open-lab')
+        page.wait_for_timeout(800)
+        lab = page.evaluate('() => [RT.audio.hitBuffers.size, RT.HITS.filter((h) => !h.synthOnly).length]')
+        print('타격음 불러오기:', lab)
+        if lab[0] != lab[1]:
+            problems.append(f'타격음 파일을 다 불러오지 못함: {lab}')
+        page.keyboard.press('KeyD')
+        page.click('[data-preset="drum"]')
+        kit = page.evaluate("() => JSON.parse(localStorage.getItem('rhythmtown.settings')).hitKit")
+        if kit[0] != ['kick_sdb']:
+            problems.append(f'타격음 묶음이 저장되지 않음: {kit}')
+        shot(page, '01b-sound-lab')
+        page.click('[data-preset="mix"]')
+        page.keyboard.press('Escape')
+
+        # 1) 1인·하 키 입력 판정
+        page.goto(URL)
         page.click(SYNTH)
         page.click('label:has(input[name="players"][value="1"])')
         page.click('label:has(input[value="하"])')

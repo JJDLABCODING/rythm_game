@@ -129,6 +129,8 @@ document.querySelectorAll('input[name="players"], input[name="difficulty"]').for
   input.addEventListener('change', updateSelection);
 });
 document.getElementById('start').addEventListener('click', startGame);
+const soundLab = new RT.SoundLab();
+document.getElementById('open-lab').addEventListener('click', () => soundLab.open());
 document.getElementById('pause-button').addEventListener('click', () => {
   if (RT.currentGame) RT.currentGame.pause();
 });

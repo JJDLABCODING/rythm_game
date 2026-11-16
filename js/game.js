@@ -8,15 +8,17 @@
 
   /* ---------- 설정 (판정 보정·타격음) ---------- */
   const SETTINGS_KEY = 'rhythmtown.settings';
-  RT.settings = { offset: 0, hitSound: true };
+  RT.settings = { offset: 0, hitSound: true, hitKit: RT.cleanHitKit(null) };
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
     if (typeof saved.offset === 'number') RT.settings.offset = Math.max(-200, Math.min(200, saved.offset));
     if (typeof saved.hitSound === 'boolean') RT.settings.hitSound = saved.hitSound;
+    if (saved.hitKit) RT.settings.hitKit = RT.cleanHitKit(saved.hitKit);
   } catch (_) { /* 저장소를 못 쓰면 기본값 */ }
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(RT.settings)); } catch (_) { /* 무시 */ }
   }
+  RT.saveSettings = saveSettings;
 
   /* ---------- 상수 ---------- */
   // 1인: D F J K (또는 방향키), 2인: 1P A S D F / 2P J K L ; (또는 방향키)
@@ -204,6 +206,7 @@
     start() {
       const audio = RT.audio;
       audio.ensure();
+      audio.loadHits(RT.settings.hitKit.flat()); // 고른 타격음을 카운트다운 동안 준비한다
       const chart = this.song.buildChart(this.difficulty);
       this.lastNoteTime = chart.length ? chart[chart.length - 1].time : 0;
       this.endTime = Math.min(this.song.length, this.lastNoteTime + 2.8);

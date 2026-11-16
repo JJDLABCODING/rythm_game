@@ -8,6 +8,7 @@
   const RT = (root.RT = root.RT || {});
 
   const midiToFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  const HIT_LEVEL = { perfect: 1, great: 0.65, good: 0.45 };
 
   class AudioEngine {
     constructor() {
@@ -22,6 +23,8 @@
       this.files = new Map(); // 주소 → 내려받은 음원(ArrayBuffer) 약속
       this.decoded = new Map(); // 주소 → 풀어 둔 AudioBuffer 약속
       this.source = null;
+      this.hitBuffers = new Map(); // 타격음 id → AudioBuffer
+      this.hitLoading = new Map();
     }
 
     /* ---------- 음원 파일 ---------- */
@@ -526,28 +529,69 @@
       }
     }
 
-    /* ---------- 플레이어 타격음 (북·장구, 삑사리) ---------- */
+    /* ---------- 플레이어 타격음 (북·장구·드럼, 삑사리) ---------- */
 
-    // 레인마다 다른 타악기: 청 = 큰북 '둥', 적 = 장구 '덩', 황 = 장구 '덕', 백 = 손뼉(힙합 스네어)
-    // kind: 판정. 정확할수록 크고 묵직하게(얼쑤 1.0 · 좋다 0.62 · 잘한다 0.4)
+    // 레인마다 고른 소리(RT.settings.hitKit, 타격음 시험실에서 바꾼다)를 낸다.
+    // kind: 판정. 정확할수록 크게(얼쑤 1.0 · 좋다 0.65 · 잘한다 0.45)
     hit(kind, lane) {
       if (!this.ctx || this.ctx.state !== 'running') return;
       if (RT.settings && !RT.settings.hitSound) return;
+      const v = HIT_LEVEL[kind] || HIT_LEVEL.perfect;
+      const kit = RT.settings && RT.settings.hitKit ? RT.settings.hitKit : RT.DEFAULT_HIT_KIT;
+      const ids = (kit && kit[lane]) || ['synth_buk'];
+      ids.forEach((id, i) => this.playHit(id, v * (i ? 0.8 : 1)));
+    }
+
+    // 소리 하나 내기: 녹음 파일이 준비됐으면 그것을, 아니면 합성 소리로
+    playHit(id, v) {
+      if (!this.ctx) return;
+      const info = (RT.HIT_BY_ID && RT.HIT_BY_ID[id]) || { synth: 'buk', synthOnly: true };
       const t = this.ctx.currentTime;
-      const v = kind === 'perfect' ? 1 : kind === 'great' ? 0.62 : 0.4;
       const out = this.drumBus();
-      switch (lane) {
-        case 0: this.drumBuk(t, v, out); break;
-        case 1: this.drumDeong(t, v, out); break;
-        case 2: this.drumDeok(t, v, out); break;
-        default: this.drumClap(t, v, out); break;
+      const buf = info.synthOnly ? null : this.hitBuffers.get(id);
+      if (buf) {
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const g = this.ctx.createGain();
+        g.gain.value = v * (info.gain || 1);
+        src.connect(g).connect(out);
+        src.start(t);
+        return;
       }
-      // 얼쑤: 묵직한 저음과 잔향을 더해 '쾅' 하고 울리게 한다
-      if (kind === 'perfect') {
-        const o = this.osc('sine', 72, t, 0.3);
-        o.frequency.exponentialRampToValueAtTime(42, t + 0.18);
-        o.connect(this.env(t, 0.5, 0.002, 0.22, out));
-        this.noiseSrc(t, 0.12).connect(this.filter('bandpass', 2200, 0.8)).connect(this.env(t, 0.12, 0.001, 0.09, this.reverb));
+      if (!info.synthOnly) this.loadHits([id]);
+      this.synthHit(info.synth, t, v * 1.25, out);
+    }
+
+    // 녹음 파일 미리 받아 풀어 두기 (실패하면 합성 소리를 계속 쓴다)
+    loadHits(ids) {
+      const ctx = this.ensure();
+      return Promise.all(ids.map((id) => {
+        const info = RT.HIT_BY_ID && RT.HIT_BY_ID[id];
+        if (!info || info.synthOnly || this.hitBuffers.has(id)) return null;
+        if (!this.hitLoading.has(id)) {
+          const p = fetch(`audio/hits/${id}.wav`)
+            .then((r) => {
+              if (!r.ok) throw new Error(r.status);
+              return r.arrayBuffer();
+            })
+            .then((data) => ctx.decodeAudioData(data))
+            .then((buf) => { this.hitBuffers.set(id, buf); })
+            .catch(() => { /* file:// 등: 합성 소리로 대신한다 */ });
+          this.hitLoading.set(id, p);
+        }
+        return this.hitLoading.get(id);
+      }));
+    }
+
+    synthHit(name, t, v, out) {
+      switch (name) {
+        case 'kick': return this.drumKick(t, v, out);
+        case 'kung': return this.drumKung(t, v, out);
+        case 'deok': return this.drumDeok(t, v, out);
+        case 'deong': return this.drumDeong(t, v, out);
+        case 'clap': return this.drumClap(t, v, out);
+        case 'hat': return this.drumHat(t, v, out);
+        default: return this.drumBuk(t, v, out);
       }
     }
 
@@ -595,7 +639,7 @@
     drumBus() {
       if (!this.drums) {
         this.drums = this.ctx.createGain();
-        this.drums.gain.value = 1.5;
+        this.drums.gain.value = 1.2;
         this.drums.connect(this.master);
       }
       return this.drums;
@@ -614,12 +658,28 @@
       this.noiseSrc(t, 0.2).connect(this.filter('lowpass', 400)).connect(this.env(t, 0.12 * v, 0.002, 0.12, this.reverb));
     }
 
-    // 장구 덩: 궁편과 채편을 함께
-    drumDeong(t, v, out) {
+    // 장구 쿵(궁편)
+    drumKung(t, v, out) {
       const o = this.osc('sine', 112, t, 0.45);
       o.frequency.exponentialRampToValueAtTime(80, t + 0.22);
       o.connect(this.env(t, 0.6 * v, 0.003, 0.34, out));
+    }
+
+    // 장구 덩: 궁편과 채편을 함께
+    drumDeong(t, v, out) {
+      this.drumKung(t, v, out);
       this.drumDeok(t, v * 0.85, out);
+    }
+
+    drumKick(t, v, out) {
+      const o = this.osc('sine', 150, t, 0.4);
+      o.frequency.exponentialRampToValueAtTime(44, t + 0.12);
+      o.connect(this.env(t, 0.95 * v, 0.002, 0.32, out));
+      this.noiseSrc(t, 0.02).connect(this.filter('highpass', 2500)).connect(this.env(t, 0.2 * v, 0.001, 0.015, out));
+    }
+
+    drumHat(t, v, out) {
+      this.noiseSrc(t, 0.08).connect(this.filter('highpass', 7000)).connect(this.env(t, 0.35 * v, 0.001, 0.05, out));
     }
 
     // 장구 덕(채편): 맑고 '딱' 하는 소리
