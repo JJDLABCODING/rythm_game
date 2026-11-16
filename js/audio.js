@@ -526,13 +526,124 @@
       }
     }
 
-    // 노트를 맞혔을 때의 작은 나무 소리
-    hit(kind) {
+    /* ---------- 플레이어 타격음 (북·장구, 삑사리) ---------- */
+
+    // 레인마다 다른 타악기: 청 = 큰북 '둥', 적 = 장구 '덩', 황 = 장구 '덕', 백 = 손뼉(힙합 스네어)
+    // kind: 판정. 정확할수록 크고 묵직하게(얼쑤 1.0 · 좋다 0.62 · 잘한다 0.4)
+    hit(kind, lane) {
       if (!this.ctx || this.ctx.state !== 'running') return;
       if (RT.settings && !RT.settings.hitSound) return;
       const t = this.ctx.currentTime;
-      const f = kind === 'perfect' ? 1180 : 980;
-      this.osc('sine', f, t, 0.08).connect(this.env(t, 0.16, 0.001, 0.045, this.sfx));
+      const v = kind === 'perfect' ? 1 : kind === 'great' ? 0.62 : 0.4;
+      const out = this.drumBus();
+      switch (lane) {
+        case 0: this.drumBuk(t, v, out); break;
+        case 1: this.drumDeong(t, v, out); break;
+        case 2: this.drumDeok(t, v, out); break;
+        default: this.drumClap(t, v, out); break;
+      }
+      // 얼쑤: 묵직한 저음과 잔향을 더해 '쾅' 하고 울리게 한다
+      if (kind === 'perfect') {
+        const o = this.osc('sine', 72, t, 0.3);
+        o.frequency.exponentialRampToValueAtTime(42, t + 0.18);
+        o.connect(this.env(t, 0.5, 0.002, 0.22, out));
+        this.noiseSrc(t, 0.12).connect(this.filter('bandpass', 2200, 0.8)).connect(this.env(t, 0.12, 0.001, 0.09, this.reverb));
+      }
+    }
+
+    // 박자를 놓친 입력: 피리가 갈라지듯 '삐익' 하는 삑사리 + 힘없이 빗맞은 북
+    miss(lane) {
+      if (!this.ctx || this.ctx.state !== 'running') return;
+      if (RT.settings && !RT.settings.hitSound) return;
+      const ctx = this.ctx;
+      const t = ctx.currentTime;
+      const out = this.drumBus();
+      const base = [1480, 1320, 1660, 1240][lane || 0] * (0.97 + Math.random() * 0.06);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.012);
+      g.gain.setValueAtTime(0.16, t + 0.07);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+      const band = this.filter('bandpass', base * 1.3, 2.2);
+      band.connect(g).connect(out);
+      // 음이 올라가다 갑자기 꺾여 떨어지는 소리
+      const o1 = this.osc('square', base, t, 0.3);
+      o1.frequency.linearRampToValueAtTime(base * 1.12, t + 0.06);
+      o1.frequency.setValueAtTime(base * 0.71, t + 0.075);
+      o1.frequency.exponentialRampToValueAtTime(base * 0.55, t + 0.25);
+      const o2 = this.osc('sawtooth', base * 1.06, t, 0.3); // 살짝 어긋난 음이 거슬리는 맥놀이를 만든다
+      o2.frequency.linearRampToValueAtTime(base * 1.2, t + 0.06);
+      o2.frequency.setValueAtTime(base * 0.77, t + 0.075);
+      o2.frequency.exponentialRampToValueAtTime(base * 0.6, t + 0.25);
+      const wob = this.osc('sine', 31, t, 0.3);
+      const wd = ctx.createGain();
+      wd.gain.value = 60;
+      wob.connect(wd);
+      wd.connect(o1.frequency);
+      wd.connect(o2.frequency);
+      for (const [o, lv] of [[o1, 0.5], [o2, 0.35]]) {
+        const og = ctx.createGain();
+        og.gain.value = lv;
+        o.connect(og).connect(band);
+      }
+      // 빗맞은 북: 짧고 탁한 소리
+      const thud = this.osc('sine', 140, t, 0.1);
+      thud.frequency.exponentialRampToValueAtTime(90, t + 0.06);
+      thud.connect(this.env(t, 0.18, 0.002, 0.05, out));
+    }
+
+    drumBus() {
+      if (!this.drums) {
+        this.drums = this.ctx.createGain();
+        this.drums.gain.value = 1.5;
+        this.drums.connect(this.master);
+      }
+      return this.drums;
+    }
+
+    // 큰북(소리북·모둠북): 낮고 깊게 '둥'
+    drumBuk(t, v, out) {
+      const o = this.osc('sine', 128, t, 0.6);
+      o.frequency.exponentialRampToValueAtTime(64, t + 0.2);
+      o.connect(this.env(t, 0.85 * v, 0.002, 0.42 + 0.15 * v, out));
+      const o2 = this.osc('triangle', 210, t, 0.2);
+      o2.frequency.exponentialRampToValueAtTime(120, t + 0.08);
+      o2.connect(this.env(t, 0.22 * v, 0.001, 0.08, out));
+      // 북채가 가죽에 닿는 소리
+      this.noiseSrc(t, 0.05).connect(this.filter('bandpass', 900, 1.2)).connect(this.env(t, 0.35 * v, 0.001, 0.03, out));
+      this.noiseSrc(t, 0.2).connect(this.filter('lowpass', 400)).connect(this.env(t, 0.12 * v, 0.002, 0.12, this.reverb));
+    }
+
+    // 장구 덩: 궁편과 채편을 함께
+    drumDeong(t, v, out) {
+      const o = this.osc('sine', 112, t, 0.45);
+      o.frequency.exponentialRampToValueAtTime(80, t + 0.22);
+      o.connect(this.env(t, 0.6 * v, 0.003, 0.34, out));
+      this.drumDeok(t, v * 0.85, out);
+    }
+
+    // 장구 덕(채편): 맑고 '딱' 하는 소리
+    drumDeok(t, v, out) {
+      this.noiseSrc(t, 0.1).connect(this.filter('bandpass', 3200, 1.3)).connect(this.env(t, 0.9 * v, 0.001, 0.05, out));
+      const o = this.osc('triangle', 600, t, 0.15);
+      o.frequency.exponentialRampToValueAtTime(470, t + 0.07);
+      o.connect(this.env(t, 0.5 * v, 0.001, 0.08, out));
+      this.osc('sine', 330, t, 0.2).connect(this.env(t, 0.32 * v, 0.001, 0.12, out));
+      this.noiseSrc(t, 0.12).connect(this.filter('bandpass', 3000, 1)).connect(this.env(t, 0.12 * v, 0.001, 0.08, this.reverb));
+    }
+
+    // 손뼉(클랩): 여러 손이 조금씩 어긋나 치는 소리
+    drumClap(t, v, out) {
+      const band = this.filter('bandpass', 1500, 0.9);
+      band.connect(out);
+      for (const [d, lv] of [[0, 0.5], [0.011, 0.45], [0.022, 0.6]]) {
+        this.noiseSrc(t + d, 0.03).connect(this.env(t + d, lv * v, 0.001, 0.012, band));
+      }
+      this.noiseSrc(t + 0.022, 0.25).connect(this.env(t + 0.022, 0.55 * v, 0.002, 0.14, band));
+      this.noiseSrc(t, 0.2).connect(this.filter('bandpass', 1800, 0.7)).connect(this.env(t, 0.14 * v, 0.002, 0.15, this.reverb));
+      const o = this.osc('triangle', 190, t, 0.1);
+      o.frequency.exponentialRampToValueAtTime(140, t + 0.06);
+      o.connect(this.env(t, 0.2 * v, 0.001, 0.06, out));
     }
   }
 

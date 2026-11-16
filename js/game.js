@@ -67,6 +67,11 @@
       this.pressed = [0, 0, 0, 0];
       this.flash = [-1, -1, -1, -1];
       this.bursts = [];
+      this.sparks = []; // 맞혔을 때 튀는 불꽃
+      this.whiffs = []; // 박자를 놓친 입력(삑사리)
+      this.punch = [-1, -1, -1, -1]; // 받침 원이 눌렸다 튀어 오르는 시각
+      this.shake = null; // 판 흔들림 { at, kind }
+      this.comboAt = -1;
       this.counts = { perfect: 0, great: 0, good: 0, miss: 0 };
       this.sum = 0;
       this.combo = 0;
@@ -101,7 +106,33 @@
       this.apply(note, kind, dt, wallNow);
       this.flash[lane] = wallNow;
       this.bursts.push({ lane, at: wallNow, kind });
+      this.punch[lane] = wallNow;
+      this.spawnSparks(lane, kind, wallNow);
+      if (kind === 'perfect') this.shake = { at: wallNow, kind: 'hit' };
       return kind;
+    }
+
+    // 박자가 틀린 입력: 판정(점수)은 바꾸지 않고 소리·화면으로만 알려 준다.
+    whiff(lane, wallNow) {
+      this.whiffs.push({ lane, at: wallNow });
+      this.punch[lane] = wallNow;
+      this.shake = { at: wallNow, kind: 'whiff' };
+    }
+
+    // 불꽃 조각: 처음 속도와 방향만 정해 두고 그릴 때 시간으로 위치를 계산한다.
+    spawnSparks(lane, kind, wallNow) {
+      const count = kind === 'perfect' ? 16 : kind === 'great' ? 10 : 5;
+      const speed = kind === 'perfect' ? 1 : kind === 'great' ? 0.75 : 0.5;
+      for (let i = 0; i < count; i++) {
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.15;
+        const v = (260 + Math.random() * 420) * speed;
+        this.sparks.push({
+          lane, at: wallNow, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+          life: 280 + Math.random() * 260, size: 1.5 + Math.random() * 2.2,
+          gold: kind === 'perfect' && Math.random() < 0.6,
+        });
+      }
+      if (this.sparks.length > 240) this.sparks.splice(0, this.sparks.length - 240);
     }
 
     // 판정선을 지나간 노트는 놓친 것으로 처리한다.
@@ -126,6 +157,7 @@
         this.combo = 0;
       } else {
         this.combo++;
+        this.comboAt = wallNow;
         this.maxCombo = Math.max(this.maxCombo, this.combo);
         if (MILESTONES[this.combo]) this.milestone = { text: MILESTONES[this.combo], at: wallNow };
       }
@@ -262,7 +294,12 @@
       player.pressed[lane] = wall;
       const t = RT.audio.songTime(stamp && stamp > 0 ? stamp : wall);
       const kind = player.press(lane, t, wall);
-      if (kind) RT.audio.hit(kind);
+      if (kind) {
+        RT.audio.hit(kind, lane);
+      } else {
+        player.whiff(lane, wall);
+        RT.audio.miss(lane);
+      }
     }
 
     onPointerDown(e) {
@@ -345,7 +382,7 @@
                 <button type="button" data-act="off+" aria-label="판정 보정 늘리기">+</button>
               </span>
             </div>
-            <label class="setting-row"><span>타격음</span><input type="checkbox" data-act="hitsound" ${s.hitSound ? 'checked' : ''}></label>
+            <label class="setting-row"><span>타격음 <small>북·장구 소리, 빗나가면 삑사리</small></span><input type="checkbox" data-act="hitsound" ${s.hitSound ? 'checked' : ''}></label>
           </div>
           <p class="hint">Esc 키로 계속하기</p>
         </div>`;
@@ -602,10 +639,10 @@
           const n = pl.lanes[lane][pl.head[lane]];
           if (n && now >= n.time) {
             const wall = performance.now();
-            pl.press(lane, n.time + (p === 1 ? 0.04 : 0), wall);
+            const kind = pl.press(lane, n.time + (p === 1 ? 0.04 : 0), wall);
             pl.pressed[lane] = wall;
             setTimeout(() => { pl.pressed[lane] = 0; }, 70);
-            RT.audio.hit('perfect');
+            RT.audio.hit(kind || 'perfect', lane);
           }
         }
       }
@@ -622,7 +659,21 @@
       this.pulse = now >= (this.song.firstBeat || 0) - 0.05 && this.state === 'playing' && !this.reducedMotion ? Math.exp(-beatPhase * 7) : 0;
       this.drawFloor(g, Math.max(0, now), this.pulse);
       this.drawTopBar(g, now);
-      this.players.forEach((pl, i) => this.drawField(g, pl, this.fields[i], now, wall));
+      this.players.forEach((pl, i) => {
+        // 타격감: 얼쑤면 판이 아래로 '쿵' 눌리고, 삑사리면 좌우로 흔들린다.
+        let dx = 0;
+        let dy = 0;
+        const sh = pl.shake;
+        if (sh && !this.reducedMotion) {
+          const age = (wall - sh.at) / 1000;
+          if (sh.kind === 'hit' && age < 0.12) dy = 5 * (1 - age / 0.12);
+          else if (sh.kind === 'whiff' && age < 0.22) dx = Math.sin(age * 90) * 6 * (1 - age / 0.22);
+        }
+        g.save();
+        g.translate(dx, dy);
+        this.drawField(g, pl, this.fields[i], now, wall);
+        g.restore();
+      });
       this.drawCountdown(g, now);
     }
 
@@ -692,13 +743,24 @@
         }
         const pressed = pl.pressed[lane];
         const flashAge = (wall - pl.flash[lane]) / 1000;
-        const glowAlpha = Math.max(pressed ? 0.35 : 0, flashAge < 0.18 ? 0.6 * (1 - flashAge / 0.18) : 0);
+        const glowAlpha = Math.max(pressed ? 0.35 : 0, flashAge < 0.22 ? 0.8 * (1 - flashAge / 0.22) : 0);
         if (glowAlpha > 0) {
-          const grad = g.createLinearGradient(0, hitY, 0, hitY - span * 0.55);
+          const reach = flashAge < 0.22 ? 0.55 + 0.35 * (1 - flashAge / 0.22) : 0.55;
+          const grad = g.createLinearGradient(0, hitY, 0, hitY - span * reach);
           grad.addColorStop(0, hexA(LANE_COLORS[lane], glowAlpha));
           grad.addColorStop(1, hexA(LANE_COLORS[lane], 0));
           g.fillStyle = grad;
-          g.fillRect(lx + 2, hitY - span * 0.55, laneW - 4, span * 0.55);
+          g.fillRect(lx + 2, hitY - span * reach, laneW - 4, span * reach);
+          // 맞힌 순간 레인 가운데로 솟는 흰 빛줄기
+          if (flashAge < 0.12) {
+            const k = 1 - flashAge / 0.12;
+            const bw = laneW * 0.3 * k;
+            const beam = g.createLinearGradient(0, hitY, 0, hitY - span * 0.8);
+            beam.addColorStop(0, hexA('#ffffff', 0.85 * k));
+            beam.addColorStop(1, hexA('#ffffff', 0));
+            g.fillStyle = beam;
+            g.fillRect(lx + laneW / 2 - bw / 2, hitY - span * 0.8, bw, span * 0.8);
+          }
         }
       }
 
@@ -713,10 +775,13 @@
       g.fillRect(x + 6, hitY - 1, w - 12, 2);
       g.restore();
 
-      // 받침 원
+      // 받침 원 (누르면 쏙 들어갔다 튀어나온다)
       for (let lane = 0; lane < 4; lane++) {
         const cx = x + lane * laneW + laneW / 2;
-        const r = Math.min(laneW * 0.34, 30);
+        const pAge = (wall - pl.punch[lane]) / 1000;
+        let squash = 1;
+        if (!this.reducedMotion && pAge >= 0 && pAge < 0.2) squash = pAge < 0.05 ? 1 - 0.18 * (pAge / 0.05) : 0.82 + 0.18 * (1 - Math.exp(-(pAge - 0.05) * 30)) + 0.08 * Math.sin((pAge - 0.05) * 40) * (1 - pAge / 0.2);
+        const r = Math.min(laneW * 0.34, 30) * squash;
         g.save();
         g.beginPath();
         g.arc(cx, hitY, r, 0, Math.PI * 2);
@@ -765,17 +830,103 @@
       }
       g.restore();
 
-      // 타격 효과 (퍼지는 고리)
-      pl.bursts = pl.bursts.filter((b) => wall - b.at < 320);
+      // 타격 효과: 번쩍이는 빛 원 + 퍼지는 고리 (얼쑤는 고리 두 겹)
+      const baseR = Math.min(laneW * 0.34, 30);
+      pl.bursts = pl.bursts.filter((b) => wall - b.at < 380);
+      g.save();
+      g.globalCompositeOperation = 'lighter';
       for (const b of pl.bursts) {
-        const age = (wall - b.at) / 320;
+        const age = (wall - b.at) / 380;
         const cx = x + b.lane * laneW + laneW / 2;
-        const r = Math.min(laneW * 0.34, 30) * (1 + (this.reducedMotion ? 0.2 : 0.9) * age);
+        const color = b.kind === 'perfect' ? '#ffe14d' : LANE_COLORS[b.lane];
+        const big = b.kind === 'perfect' ? 1 : b.kind === 'great' ? 0.75 : 0.5;
+        if (age < 0.35) {
+          const k = 1 - age / 0.35;
+          const fr = baseR * (1.1 + 0.6 * big * (1 - k));
+          const disc = g.createRadialGradient(cx, hitY, 0, cx, hitY, fr);
+          disc.addColorStop(0, hexA('#ffffff', 0.9 * k * big));
+          disc.addColorStop(0.45, hexA(color, 0.6 * k * big));
+          disc.addColorStop(1, hexA(color, 0));
+          g.fillStyle = disc;
+          g.fillRect(cx - fr, hitY - fr, fr * 2, fr * 2);
+        }
+        const rings = b.kind === 'perfect' ? [0, 0.18] : [0];
+        for (const delay of rings) {
+          const a = (age - delay) / (1 - delay);
+          if (a < 0) continue;
+          const ease = 1 - Math.pow(1 - a, 3);
+          const r = baseR * (1 + (this.reducedMotion ? 0.25 : 1.3 * big) * ease);
+          g.beginPath();
+          g.arc(cx, hitY, r, 0, Math.PI * 2);
+          g.strokeStyle = hexA(color, (1 - a) * (delay ? 0.6 : 1));
+          g.lineWidth = (5 * big + 1) * (1 - a) + 1;
+          g.stroke();
+        }
+      }
+      // 불꽃 조각
+      if (!this.reducedMotion) {
+        pl.sparks = pl.sparks.filter((sp) => wall - sp.at < sp.life);
+        g.lineCap = 'round';
+        for (const sp of pl.sparks) {
+          const tt = (wall - sp.at) / 1000;
+          const k = 1 - (wall - sp.at) / sp.life;
+          const sx = x + sp.lane * laneW + laneW / 2 + sp.vx * tt;
+          const sy = hitY + sp.vy * tt + 900 * tt * tt;
+          const vx = sp.vx;
+          const vy = sp.vy + 1800 * tt;
+          const len = 0.018;
+          g.strokeStyle = hexA(sp.gold ? '#ffe14d' : LANE_COLORS[sp.lane], k);
+          g.lineWidth = sp.size * (0.5 + k * 0.5);
+          g.beginPath();
+          g.moveTo(sx, sy);
+          g.lineTo(sx - vx * len, sy - vy * len);
+          g.stroke();
+        }
+      } else {
+        pl.sparks.length = 0;
+      }
+      g.restore();
+
+      // 삑사리: 받침 위에 붉은 X 표시와 '삑!' 글자
+      pl.whiffs = pl.whiffs.filter((wf) => wall - wf.at < 420);
+      for (const wf of pl.whiffs) {
+        const age = (wall - wf.at) / 420;
+        const cx = x + wf.lane * laneW + laneW / 2;
+        const a = 1 - age;
+        g.save();
+        g.globalAlpha = a;
+        // 레인이 잠깐 붉게 어두워진다
+        const red = g.createLinearGradient(0, hitY + 20, 0, hitY - span * 0.35);
+        red.addColorStop(0, '#ff335566');
+        red.addColorStop(1, '#ff335500');
+        g.fillStyle = red;
+        g.fillRect(x + wf.lane * laneW + 2, hitY - span * 0.35, laneW - 4, span * 0.35 + 20);
+        const xr = baseR * 0.55 * (this.reducedMotion ? 1 : 1 + 0.25 * Math.max(0, 1 - age * 6));
+        g.strokeStyle = '#ff4d6d';
+        g.shadowColor = '#ff3355';
+        g.shadowBlur = 10;
+        g.lineWidth = 4;
+        g.lineCap = 'round';
         g.beginPath();
-        g.arc(cx, hitY, r, 0, Math.PI * 2);
-        g.strokeStyle = hexA(b.kind === 'perfect' ? '#ffe14d' : LANE_COLORS[b.lane], 1 - age);
-        g.lineWidth = 3 * (1 - age) + 1;
+        g.moveTo(cx - xr, hitY - xr);
+        g.lineTo(cx + xr, hitY + xr);
+        g.moveTo(cx + xr, hitY - xr);
+        g.lineTo(cx - xr, hitY + xr);
         g.stroke();
+        g.shadowBlur = 0;
+        g.font = `400 ${Math.round(Math.min(22, laneW * 0.26))}px ${TITLE_FONT}`;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.lineWidth = 4;
+        g.strokeStyle = '#05010d';
+        const ty = hitY - baseR - 18 - (this.reducedMotion ? 0 : age * 22);
+        const tilt = this.reducedMotion ? 0 : Math.sin(age * 40) * 0.12 * a;
+        g.translate(cx, ty);
+        g.rotate(tilt);
+        g.strokeText('삑!', 0, 0);
+        g.fillStyle = '#ff8fa3';
+        g.fillText('삑!', 0, 0);
+        g.restore();
       }
 
       // 점수판
@@ -798,10 +949,17 @@
       // 연속(콤보)
       const midY = noteTop + span * 0.38;
       if (pl.combo >= 3) {
+        const cAge = (wall - pl.comboAt) / 1000;
+        const cPop = this.reducedMotion || cAge > 0.15 ? 0 : 1 - cAge / 0.15;
+        g.save();
         g.textAlign = 'center';
+        g.translate(x + w / 2, midY);
+        g.scale(1 + 0.22 * cPop, 1 + 0.22 * cPop);
         g.font = `400 ${Math.round(Math.min(68, w * 0.16))}px ${TITLE_FONT}`;
-        g.fillStyle = hexA(pc, 0.22 + pulse * 0.25);
-        g.fillText(pl.combo, x + w / 2, midY);
+        g.fillStyle = hexA(pc, 0.22 + pulse * 0.25 + 0.5 * cPop);
+        g.fillText(pl.combo, 0, 0);
+        g.restore();
+        g.textAlign = 'center';
         g.font = `700 12px ${FONT}`;
         g.fillStyle = '#fff4e677';
         g.fillText('연속', x + w / 2, midY + 40);
